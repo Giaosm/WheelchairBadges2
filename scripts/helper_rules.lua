@@ -1,0 +1,71 @@
+--勋章规则配置(纯数据)。新增勋章只改这里。
+--  tags            = { "标签" }              拥有勋章(未佩戴)时临时赋予的标签
+--  conditional_tags= { 条件标记 = { "标签" } } 满足条件才赋(判断逻辑在helper_tags.lua)
+--  components      = { "组件" }              拥有勋章(未佩戴)时临时添加的组件
+HelperRules_MEDAL_RULES = {
+	--大厨勋章
+	chef_certificate = {
+		tags = { "masterchef", "professionalchef", "expertchef" },
+	},
+	--主厨勋章
+	headchef_certificate = {
+		tags = { "masterchef", "professionalchef", "expertchef", "seasoningchef" },
+	},
+	--智慧勋章
+	wisdom_certificate = {
+		tags = { "bookbuilder", "wisdombuilder", "reader" },
+	},
+	--本源勋章
+	origin_certificate = {
+		tags = { "has_origin_medal" },
+	},
+	--丰收勋章
+	--注意：medal_fastpicker有作弊风险(采摘加速/晾肉架快采快干/本源果树翻倍)，待处理
+	harvest_certificate = {
+		tags = { "medal_fastpicker" },
+	},
+	--女武神勋章
+	valkyrie_certificate = {
+		tags = { "valkyrie" },
+	},
+	--鱼人勋章
+	merm_certificate = {
+		tags = { "merm_builder", --[[ "merm", "playermerm", "stronggrip", "mermfluent" ]] },
+	},
+	--虫木勋章
+	plant_certificate = {
+		tags = { "plantkin", "has_plant_medal" },
+	},
+	--蜘蛛勋章
+	--注意：spiderwhisperer有作弊风险(解锁韦伯蜘蛛配方+蜘蛛不攻击)，待处理
+	spider_certificate = {
+		tags = { "spiderwhisperer" },
+	},
+	--浴火勋章
+	bathingfire_certificate = {
+		tags = { "has_bathfire_medal", --[[ "pyromaniac", "bernieowner", "expertchef" ]] },
+	},
+	--植物勋章
+	transplant_certificate = {
+		tags = { "plantkin", "has_plant_medal", "has_transplant_medal" },
+	},
+	--童心勋章
+	childishness_certificate = {
+		tags = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness", "storyteller" },
+	},
+	--童真勋章
+	childlike_certificate = {
+		tags = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness", "senior_childishness", "storyteller" },
+	},
+	--暗影勋章
+	shadowmagic_certificate = {
+		tags = { "shadowmagic", "has_shadowmagic_medal", "magician" },
+	},
+	--巧手勋章
+	handy_certificate = {
+		tags = { "handyperson", "has_handy_medal" },
+		conditional_tags = {
+			no_portableengineer = { "basicengineer" },
+		},
+	},
+}
