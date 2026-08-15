@@ -18,7 +18,7 @@ HelperRules_AUTO_EQUIP = {
 		"largechop_certificate",	--伐木勋章(高级，支持本源加成)
 		"largeminer_certificate",	--高级矿工勋章
 		"headchef_certificate",		--主厨勋章
-		-- "handy_certificate",		--巧手勋章
+		"handy_certificate",		--巧手勋章
 		-- "wisdom_certificate",	--智慧勋章
 		-- "transplant_certificate",--植物勋章
 		-- "harvest_certificate",	--丰收勋章
@@ -60,6 +60,11 @@ HelperRules_AUTO_EQUIP = {
 			"headchef_certificate",		--主厨(最终)
 			"chef_certificate",			--大厨
 			"cook_certificate",			--烹饪
+		},
+		--巧手勋章组(无显式grouptag，考验→巧手为完整升级链)
+		handyMedal = {
+			"handy_certificate",		--巧手(最终)
+			"handy_test_certificate",	--巧手考验(前置)
 		},
 	},
 }

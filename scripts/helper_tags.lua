@@ -1,14 +1,14 @@
---标签同步：拥有勋章(未佩戴)→临时赋标签/组件；佩戴(含融合勋章内)→临时归能力勋章管，我方不误删。
---规则来自 helper_rules.lua，后续加勋章只改那里。
+--标签同步：拥有勋章(未佩戴)→临时赋标签/组件；佩戴→临时归能力勋章管，我方不误删。
+--规则来自 helper_rules.lua，加勋章只改那里。
 local MEDAL_RULES = HelperRules_MEDAL_RULES
 
---通用条件标签：条件标记→判断函数，满足才赋标签
+--条件标签：条件标记→判断函数
 local TAG_CONDITIONS = {
 	no_portableengineer = function(player) return not player:HasTag("portableengineer") end,
 }
 
 --------------------------------内部工具--------------------------------
---物品是否匹配目标勋章(含空白勋章复制品：prefab为copy_blank_certificate，medalname记录印刻对象)
+--物品是否匹配目标勋章(含空白勋章复制品)
 local function IsMedalItem(item, prefabname)
 	if item == nil then return false end
 	if item.prefab == prefabname then return true end
@@ -22,7 +22,7 @@ local function IsMedalEquipped(player, prefabname)
 	local medal = player.components.inventory and player.components.inventory:GetEquippedItem(EQUIPSLOTS.MEDAL or EQUIPSLOTS.NECK or EQUIPSLOTS.BODY)
 	if medal then
 		if IsMedalItem(medal, prefabname) then return true end
-		if medal:HasTag("multivariate_certificate") and medal.components.container then--融合勋章内部
+		if medal:HasTag("multivariate_certificate") and medal.components.container then
 			for _, subitem in pairs(medal.components.container.slots) do
 				if IsMedalItem(subitem, prefabname) then return true end
 			end
@@ -31,7 +31,7 @@ local function IsMedalEquipped(player, prefabname)
 	return false
 end
 
---是否拥有指定勋章。复用 GetPlayerMedalItems(已含背包+装备槽+手持+容器递归扫描)
+--是否拥有指定勋章(复用GetPlayerMedalItems全量扫描)
 local function IsMedalOwned(player, prefabname)
 	if player == nil then return false end
 	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
@@ -41,29 +41,36 @@ local function IsMedalOwned(player, prefabname)
 end
 
 --------------------------------临时标签管理--------------------------------
---刷新临时标签：拥有且未佩戴→加；佩戴或不再拥有→清我方标记(佩戴时归能力勋章管，不误删)。
---有增减时推送refreshcrafting刷新制作栏。
 local function RefreshPlayerMedalTags(player)
 	if player == nil or not player:HasTag("player") then return end
 	player.helper_medal_tags = player.helper_medal_tags or {}
 	player.helper_medal_components = player.helper_medal_components or {}
 
-	--第一步：统计应赋/应清的标签组件，及因佩戴而存在(能力勋章管)的标签组件
-	local tag_should, com_should = {}, {}--拥有勋章应赋
-	local tag_equipped, com_equipped = {}, {}--因佩戴而存在(能力勋章管)
+	--第一步：统计应赋/应清/佩戴中的标签组件；并检测佩戴/卸下状态变化(覆盖两个方向的漏刷)
+	local tag_should, com_should = {}, {}--拥有应赋
+	local tag_equipped, com_equipped = {}, {}--佩戴中(能力勋章管)
+	local prev_equip = player.helper_medal_equip_state or {}
+	player.helper_medal_equip_state = {}
+	local equip_changed = false
 	for prefab, rule in pairs(MEDAL_RULES) do
 		local owned = IsMedalOwned(player, prefab)
 		local equipped = IsMedalEquipped(player, prefab)
+		player.helper_medal_equip_state[prefab] = equipped
 		if equipped then
 			for _, tag in ipairs(rule.tags or {}) do tag_equipped[tag] = true end
-			for _, condtags in pairs(rule.conditional_tags or {}) do--条件标签佩戴时也视为存在
+			for _, condtags in pairs(rule.conditional_tags or {}) do
 				for _, tag in ipairs(condtags) do tag_equipped[tag] = true end
 			end
 			for _, com in ipairs(rule.components or {}) do com_equipped[com] = true end
 		end
+		--带制作效果勋章且佩戴状态有变化(佩戴/卸下)→强制刷新；首次调用不强制
+		local has_crafting_effect = (rule.tags and #rule.tags > 0) or (rule.components and #rule.components > 0)
+		if has_crafting_effect and prev_equip[prefab] ~= nil and prev_equip[prefab] ~= equipped then
+			equip_changed = true
+		end
 		if owned and not equipped then
 			for _, tag in ipairs(rule.tags or {}) do tag_should[tag] = true end
-			for cond, condtags in pairs(rule.conditional_tags or {}) do--条件满足才赋
+			for cond, condtags in pairs(rule.conditional_tags or {}) do
 				local check = TAG_CONDITIONS[cond]
 				if check and check(player) then
 					for _, tag in ipairs(condtags) do tag_should[tag] = true end
@@ -73,7 +80,7 @@ local function RefreshPlayerMedalTags(player)
 		end
 	end
 
-	local changed = false
+	local changed = equip_changed
 
 	--第二步：同步标签。佩戴中的只清标记不RemoveTag(避免误删能力勋章真标签)
 	for tag in pairs(tag_should) do
@@ -96,7 +103,7 @@ local function RefreshPlayerMedalTags(player)
 		end
 	end
 
-	--第三步：同步组件(同上逻辑)
+	--第三步：同步组件(同标签逻辑)
 	for com in pairs(com_should) do
 		local had = player.helper_medal_components[com] or false
 		if not had then
@@ -117,12 +124,15 @@ local function RefreshPlayerMedalTags(player)
 		end
 	end
 
-	if changed then player:PushEvent("refreshcrafting") end
+	--状态变化时发refreshcrafting，重建卡顿由helper_crafting_patch处理
+	if changed then
+		player:PushEvent("refreshcrafting")
+	end
 end
 
 --------------------------------合并刷新(防抖)--------------------------------
---一次装备/移动勋章会连发一串equip/itemget等事件，用"下一帧合并"只刷新一次，避免全量扫描卡顿
-local ListenAllMedalContainers--前置声明，下面赋值
+--连发一串事件时"下一帧合并"只刷一次
+local ListenAllMedalContainers--前置声明
 local function QueueMedalRefresh(player)
 	if player == nil or player.helper_medal_refresh_pending then return end
 	player.helper_medal_refresh_pending = true
@@ -136,7 +146,7 @@ local function QueueMedalRefresh(player)
 end
 
 --------------------------------勋章容器监听--------------------------------
---给容器(勋章盒/融合勋章等)挂itemget/itemlose监听刷新(幂等)
+--给容器(勋章盒/融合勋章等)挂监听(幂等)
 local function ListenMedalContainer(player, item)
 	if item == nil or item.helper_medal_listened then return end
 	if item.components and item.components.container then
@@ -147,7 +157,7 @@ local function ListenMedalContainer(player, item)
 	end
 end
 
---递归扫描，给所有容器(含嵌套)挂监听
+--递归扫描所有容器(含嵌套)挂监听
 ListenAllMedalContainers = function(player)
 	local inv = player and player.components and player.components.inventory
 	if inv == nil then return end
@@ -172,33 +182,33 @@ local function GetChangedItem(data)
 	return data and (data.item or data.prev_item)
 end
 
---仅响应勋章相关物品变化；拿不到物品则兜底刷新
+--仅响应勋章相关变化；拿不到物品则兜底刷新
 local function IsMedalRelatedChange(data)
 	local item = GetChangedItem(data)
 	if item == nil then return true end
 	return item:HasTag("medal")
 end
 
---勋章槽位判断(MEDAL/NECK/BODY)。装备栏变化只触发equip/unequip，不走背包itemslots，须靠它监听
+--勋章槽位判断(装备栏变化只走equip/unequip，不走背包itemslots)
 local function IsMedalSlot(eslot)
 	return eslot == (EQUIPSLOTS.MEDAL or EQUIPSLOTS.NECK or EQUIPSLOTS.BODY)
 end
 
 local function OnPlayerInventoryChanged(player, data)
 	if data == nil then return end
-	--equip/unequip(有eslot)：只处理勋章槽；itemget/itemlose(无eslot)：勋章相关过滤
+	--equip/unequip只处理勋章槽；itemget/itemlose过滤勋章相关
 	if data.eslot ~= nil then
 		if not IsMedalSlot(data.eslot) then return end
 	elseif not IsMedalRelatedChange(data) then
 		return
 	end
-	HelperDebug("触发刷新 | 变化物品=%s", (GetChangedItem(data) and GetChangedItem(data).prefab or "nil"))
+	local changed_item = GetChangedItem(data)
+	HelperDebug("触发刷新 | 变化物品=%s", changed_item and changed_item.prefab or "nil")
 	QueueMedalRefresh(player)
 end
 
 AddPlayerPostInit(function(player)
 	player.helper_medal_tags = player.helper_medal_tags or {}
-	--itemget/itemlose：物品进出背包；equip/unequip：勋章槽变化(勋章槽到地上时容器没变，只触发这个)
 	player:ListenForEvent("itemget", OnPlayerInventoryChanged)
 	player:ListenForEvent("itemlose", OnPlayerInventoryChanged)
 	player:ListenForEvent("equip", OnPlayerInventoryChanged)
@@ -207,7 +217,7 @@ end)
 
 --------------------------------进入世界时初始同步--------------------------------
 AddPrefabPostInit("world", function(inst)
-	inst:ListenForEvent("ms_playerjoined", function(src, player)--玩家进入时初始同步一次
+	inst:ListenForEvent("ms_playerjoined", function(src, player)
 		if player == nil or not player:HasTag("player") then return end
 		ListenAllMedalContainers(player)
 		RefreshPlayerMedalTags(player)

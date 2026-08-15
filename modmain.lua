@@ -13,6 +13,7 @@ modimport("scripts/helper_debug.lua")--调试日志
 modimport("scripts/helper_rules.lua")--勋章标签规则
 modimport("scripts/helper_globalfn.lua")--勋章扫描
 modimport("scripts/helper_tags.lua")--标签同步
+modimport("scripts/helper_crafting_patch.lua")--制作栏重建优化(客户端,关闭时轻量/打开时补刷)
 modimport("scripts/helper_autoequip_rules.lua")--自动装备规则(勋章组等级)
 modimport("scripts/helper_autoequip_actions.lua")--自动装备动作配置
 modimport("scripts/helper_autoequip.lua")--自动装备

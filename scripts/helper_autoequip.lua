@@ -243,32 +243,35 @@ end
 
 --------------------------------动作触发--------------------------------
 --参考轮椅勋章助手的监听方式：hook玩家动作执行，动作开始前自动装备对应组。
---构建"动作ID → {组, 条件}"反向映射
+--构建"动作ID → 组条目数组"。一个动作可对应多个勋章组(不同条件)，如BUILD/DISMANTLE/DEPLOY被厨师/巧手共用
 --组配置结构(见helper_autoequip_actions.lua)：
 --  action_ids     = { "CHOP", ... }                    => 无条件动作，条件为nil
 --  action_targets = { DIG = {tags/all_tags/prefabs} }  => 带条件动作，条件为对应表
 local ACTION_TO_GROUP = {}
+local function AddActionEntry(actionName, group, cond)
+	local action = ACTIONS[actionName]
+	if action == nil then
+		HelperDebug("自动装备: 未找到动作 %s(组%s)，跳过", tostring(actionName), group)
+		return
+	end
+	local list = ACTION_TO_GROUP[actionName]
+	if list == nil then
+		list = {}
+		ACTION_TO_GROUP[actionName] = list
+	end
+	table.insert(list, { group = group, cond = cond })
+end
 for group, groupCfg in pairs(AUTO_EQUIP_ACTIONS) do
 	--1. 无条件动作
 	if groupCfg.action_ids then
 		for _, actionName in ipairs(groupCfg.action_ids) do
-			local action = ACTIONS[actionName]
-			if action ~= nil then
-				ACTION_TO_GROUP[actionName] = { group = group, cond = nil }
-			else
-				HelperDebug("自动装备: 未找到动作 %s(组%s)，跳过", tostring(actionName), group)
-			end
+			AddActionEntry(actionName, group, nil)
 		end
 	end
 	--2. 带条件动作
 	if groupCfg.action_targets then
 		for actionName, cond in pairs(groupCfg.action_targets) do
-			local action = ACTIONS[actionName]
-			if action ~= nil then
-				ACTION_TO_GROUP[actionName] = { group = group, cond = cond }
-			else
-				HelperDebug("自动装备: 未找到动作 %s(组%s)，跳过", tostring(actionName), group)
-			end
+			AddActionEntry(actionName, group, cond)
 		end
 	end
 end
@@ -356,8 +359,11 @@ AddPlayerPostInit(function(inst)
 				if not hit then return false end
 			end
 		else
-			--无目标时：除非条件只依赖配方判断，否则不触发
-			if not (cond.recipe_builder_tag and #cond.recipe_builder_tag > 0) then
+			--无目标时：除非条件依赖配方判断(recipe_builder_tag/exclude_recipe_props/keep_recipe_builder_tag)，否则不触发
+			local hasRecipeCond = (cond.recipe_builder_tag and #cond.recipe_builder_tag > 0)
+				or (cond.exclude_recipe_props and #cond.exclude_recipe_props > 0)
+				or (cond.keep_recipe_builder_tag and #cond.keep_recipe_builder_tag > 0)
+			if not hasRecipeCond then
 				return false
 			end
 		end
@@ -376,16 +382,40 @@ AddPlayerPostInit(function(inst)
 			end
 			if not hit then return false end
 		end
+		if cond.exclude_recipe_props and #cond.exclude_recipe_props > 0 then--排除带指定属性的配方(如builder_tag)，但keep_recipe_builder_tag命中的保留
+			local recipe = bufferedaction.recipe
+			if type(recipe) == "string" then
+				local rec = GLOBAL.AllRecipes and GLOBAL.AllRecipes[recipe]
+				if rec then
+					local excluded = false
+					for _, prop in ipairs(cond.exclude_recipe_props) do
+						if rec[prop] ~= nil then excluded = true break end
+					end
+					if excluded then
+						local kept = false
+						if cond.keep_recipe_builder_tag and #cond.keep_recipe_builder_tag > 0 then
+							for _, tag in ipairs(cond.keep_recipe_builder_tag) do
+								if rec.builder_tag == tag then kept = true break end
+							end
+						end
+						if not kept then return false end
+					end
+				end
+			end
+		end
 		return true
 	end
 
-	--统一入口：按动作ID找对应组，校验目标条件后自动装备
+	--统一入口：按动作ID找对应组条目(可能多个)，条件命中的都自动装备对应组
 	local function TryAutoEquip(bufferedaction)
 		if bufferedaction == nil or bufferedaction.action == nil or bufferedaction.action.id == nil then return end
 		LogActionDebug(bufferedaction)--调试：打印当前动作+目标(带防抖)
-		local entry = ACTION_TO_GROUP[bufferedaction.action.id]
-		if entry ~= nil and MatchActionTarget(bufferedaction, entry.cond) then
-			AutoEquipMedalForGroup(inst, entry.group, bufferedaction)
+		local entries = ACTION_TO_GROUP[bufferedaction.action.id]
+		if entries == nil then return end
+		for _, entry in ipairs(entries) do
+			if MatchActionTarget(bufferedaction, entry.cond) then
+				AutoEquipMedalForGroup(inst, entry.group, bufferedaction)
+			end
 		end
 	end
 

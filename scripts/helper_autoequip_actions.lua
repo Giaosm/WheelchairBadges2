@@ -15,6 +15,8 @@
 --          动作 = { prefabs        = { "prefab" } },         -- 目标为指定预制件才满足
 --          动作 = { has_component  = { "stewer" } },         -- 目标带"任一"指定组件才满足(如锅的stewer)
 --          动作 = { recipe_builder_tag = { "seasoningchef" } }, -- 制作配方的builder_tag命中才触发(区分勋章专属配方，如BUILD)
+--          动作 = { exclude_recipe_props = { "builder_tag" } }, -- 制作配方带指定属性(如builder_tag)则排除(其他勋章专属)
+--          动作 = { keep_recipe_builder_tag = { "handyperson" } }, -- 被exclude_recipe_props排除时，builder_tag命中此列表的保留(自己的专属配方)
 --          -- 多个条件字段可组合，组合时同时满足才触发(各自内部按其规则判定)
 --        }
 --      }
@@ -54,6 +56,17 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			DEPLOY        = { prefabs = { "portablecookpot_item", "portablespicer_item", "portableblender_item" } },	--展开便携设备
 			DISMANTLE     = { prefabs = { "portablecookpot", "portablespicer", "portableblender" } },	--收回便携设备
 			BUILD         = { recipe_builder_tag = { "masterchef", "professionalchef", "seasoningchef" } },	--制作厨师专属配方
+		},
+	},
+	--巧手勋章组
+	handyMedal = {
+		action_targets = {
+			BUILD                   = { exclude_recipe_props = { "builder_tag" }, keep_recipe_builder_tag = { "handyperson", "has_handy_medal" } },	--制作所有东西(快速制作)，排除其他勋章专属配方(女工+巧手专属除外)
+			UNWRAP                  = { has_component = { "unwrappable" } },	--快速拆包(拆可拆包包裹，has_handy_medal加速)
+			UNWRAPGIFTFRUIT         = { prefabs = { "medal_gift_fruit" } },	--拆包果(本源+巧手批量5个)
+			UNWRAPOVERSIZEDGIFTFRUIT = { all_tags = { "oversized_veggie", "waxable" } },	--拆巨型包果(本源+巧手专属)
+			DEPLOY                  = { prefabs = { "winona_catapult_item", "winona_spotlight_item", "winona_battery_low_item", "winona_battery_high_item" } },	--部署女工专属建筑(投石机/探照灯/发电机)
+			--DISMANTLE             = { prefabs = { "winona_catapult", "winona_spotlight", "winona_battery_low", "winona_battery_high" } },	--拆除女工专属建筑(投石机/探照灯/发电机)【暂时不用】
 		},
 	},
 }
