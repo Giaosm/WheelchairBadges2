@@ -3,11 +3,11 @@
 --  conditional_tags= { 条件标记 = { "标签" } } 满足条件才赋(判断逻辑在helper_tags.lua)
 --  components      = { "组件" }              拥有勋章(未佩戴)时临时添加的组件
 HelperRules_MEDAL_RULES = {
-	--大厨勋章
+	--大厨勋章(厨师组已完成)
 	chef_certificate = {
 		tags = { "masterchef", "professionalchef", "expertchef" },
 	},
-	--主厨勋章
+	--主厨勋章(厨师组已完成)
 	headchef_certificate = {
 		tags = { "masterchef", "professionalchef", "expertchef", "seasoningchef" },
 	},
@@ -61,7 +61,7 @@ HelperRules_MEDAL_RULES = {
 	shadowmagic_certificate = {
 		tags = { "shadowmagic", "has_shadowmagic_medal", "magician" },
 	},
-	--巧手勋章
+	--巧手勋章(巧手组已完成)
 	handy_certificate = {
 		tags = { "handyperson", "has_handy_medal" },
 		conditional_tags = {

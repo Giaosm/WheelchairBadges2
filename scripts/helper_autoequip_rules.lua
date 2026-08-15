@@ -19,9 +19,9 @@ HelperRules_AUTO_EQUIP = {
 		"largeminer_certificate",	--高级矿工勋章
 		"headchef_certificate",		--主厨勋章
 		"handy_certificate",		--巧手勋章
+		"harvest_certificate",		--丰收勋章
 		-- "wisdom_certificate",	--智慧勋章
 		-- "transplant_certificate",--植物勋章
-		-- "harvest_certificate",	--丰收勋章
 		-- "justice_certificate",	--正义勋章
 		-- "valkyrie_certificate",	--女武神勋章
 		-- "naughty_certificate",	--淘气勋章
@@ -65,6 +65,10 @@ HelperRules_AUTO_EQUIP = {
 		handyMedal = {
 			"handy_certificate",		--巧手(最终)
 			"handy_test_certificate",	--巧手考验(前置)
+		},
+		--丰收勋章(单枚，无grouptag，视为单勋章组)
+		harvestMedal = {
+			"harvest_certificate",		--丰收(最终)
 		},
 	},
 }
