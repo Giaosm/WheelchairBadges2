@@ -5,10 +5,12 @@
 HelperRules_MEDAL_RULES = {
 	--大厨勋章(厨师组已完成)
 	chef_certificate = {
+		group = "chefMedal",
 		tags = { "masterchef", "professionalchef", "expertchef" },
 	},
 	--主厨勋章(厨师组已完成)
 	headchef_certificate = {
+		group = "chefMedal",
 		tags = { "masterchef", "professionalchef", "expertchef", "seasoningchef" },
 	},
 	--智慧勋章
@@ -19,8 +21,9 @@ HelperRules_MEDAL_RULES = {
 	origin_certificate = {
 		tags = { "has_origin_medal" },
 	},
-	--丰收勋章(自动装备已覆盖快采动作，执行时必佩戴对应勋章)
+	--丰收勋章(丰收组已完成)
 	harvest_certificate = {
+		group = "harvestMedal",
 		tags = { "medal_fastpicker" },
 	},
 	--女武神勋章
@@ -35,6 +38,10 @@ HelperRules_MEDAL_RULES = {
 	plant_certificate = {
 		tags = { "plantkin", "has_plant_medal" },
 	},
+	--植物勋章
+	transplant_certificate = {
+		tags = { "plantkin", "has_plant_medal", "has_transplant_medal" },
+	},
 	--蜘蛛勋章
 	--注意：spiderwhisperer有作弊风险(解锁韦伯蜘蛛配方+蜘蛛不攻击)，待处理
 	spider_certificate = {
@@ -43,10 +50,6 @@ HelperRules_MEDAL_RULES = {
 	--浴火勋章
 	bathingfire_certificate = {
 		tags = { "has_bathfire_medal", --[[ "pyromaniac", "bernieowner", "expertchef" ]] },
-	},
-	--植物勋章
-	transplant_certificate = {
-		tags = { "plantkin", "has_plant_medal", "has_transplant_medal" },
 	},
 	--童心勋章
 	childishness_certificate = {
@@ -62,6 +65,7 @@ HelperRules_MEDAL_RULES = {
 	},
 	--巧手勋章(巧手组已完成)
 	handy_certificate = {
+		group = "handyMedal",
 		tags = { "handyperson", "has_handy_medal" },
 		conditional_tags = {
 			no_portableengineer = { "basicengineer" },

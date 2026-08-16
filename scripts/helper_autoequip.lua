@@ -505,6 +505,14 @@ AddPlayerPostInit(function(inst)
 		return true
 	end
 
+	--该勋章组是否已开启自动装备(玩家可通过UI开关关闭)。默认全开；未设置=开
+	local function IsGroupEnabled(player, group)
+		if player == nil then return true end
+		local cfg = player.medal_group_enabled
+		if cfg == nil then return true end
+		return cfg[group] ~= false
+	end
+
 	--统一入口：按动作ID找对应组条目(可能多个)，条件命中的都自动装备对应组
 	local function TryAutoEquip(bufferedaction)
 		if bufferedaction == nil or bufferedaction.action == nil or bufferedaction.action.id == nil then return end
@@ -536,7 +544,7 @@ AddPlayerPostInit(function(inst)
 		if cross_priority ~= nil and not HasAnyFusion(inst) then
 			local bestEntry, bestPriority = nil, nil
 			for _, entry in ipairs(entries) do
-				if MatchActionTarget(bufferedaction, entry.cond) then
+				if IsGroupEnabled(inst, entry.group) and MatchActionTarget(bufferedaction, entry.cond) then
 					local bestMedal = FindBestGroupMedal(inst, entry.group)
 					if bestMedal ~= nil then
 						local prefab = (bestMedal.prefab == "copy_blank_certificate" and bestMedal.medalname) or bestMedal.prefab
@@ -556,7 +564,7 @@ AddPlayerPostInit(function(inst)
 		end
 
 		for _, entry in ipairs(entries) do
-			if MatchActionTarget(bufferedaction, entry.cond) then
+			if IsGroupEnabled(inst, entry.group) and MatchActionTarget(bufferedaction, entry.cond) then
 				AutoEquipMedalForGroup(inst, entry.group, bufferedaction, usedSlots, protectWaterSafe)
 			end
 		end

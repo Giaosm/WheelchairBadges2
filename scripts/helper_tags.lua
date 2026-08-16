@@ -53,8 +53,13 @@ local function RefreshPlayerMedalTags(player)
 	player.helper_medal_equip_state = {}
 	local equip_changed = false
 	for prefab, rule in pairs(MEDAL_RULES) do
-		local owned = IsMedalOwned(player, prefab)
-		local equipped = IsMedalEquipped(player, prefab)
+		--该勋章所属组被UI关闭时，不赋予临时标签(视为未拥有，已赋的会在第二步清理)
+		local group_enabled = true
+		if rule.group ~= nil and player.medal_group_enabled ~= nil and player.medal_group_enabled[rule.group] == false then
+			group_enabled = false
+		end
+		local owned = group_enabled and IsMedalOwned(player, prefab)
+		local equipped = group_enabled and IsMedalEquipped(player, prefab)
 		player.helper_medal_equip_state[prefab] = equipped
 		if equipped then
 			for _, tag in ipairs(rule.tags or {}) do tag_equipped[tag] = true end

@@ -27,6 +27,7 @@
 HelperRules_AUTO_EQUIP_ACTIONS = {
 	--伐木勋章组
 	chopMedal = {
+		name = "伐木勋章",
 		action_targets = {
 			CHOP = { exclude_tags = { "burnt" } },	--砍焦树不触发(能力勋章砍焦树不消耗耐久)
 			DIG  = { tags = { "stump" } },			--仅挖树桩(stump标签)才触发
@@ -34,12 +35,14 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 	},
 	--矿工勋章组
 	minerMedal = {
+		name = "矿工勋章",
 		action_targets = {
 			MINE = { exclude_prefabs = { "rock_avocado_fruit" } },	--排除不消耗耐久的石果
 		},
 	},
 	--厨师勋章组
 	chefMedal = {
+		name = "厨师勋章",
 		action_ids = {
 			"COOK",				--烹饪/批量烤制(seasoningchef)。【作弊】红晶锅cook走:Do()未被捕获，整组烹饪需本源+主厨
 			"MURDER",			--快速杀生(masterchef)
@@ -60,6 +63,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 	},
 	--巧手勋章组
 	handyMedal = {
+		name = "巧手勋章",
 		action_targets = {
 			BUILD                   = { exclude_recipe_props = { "builder_tag" }, keep_recipe_builder_tag = { "handyperson", "has_handy_medal" } },	--制作所有东西(快速制作)，排除其他勋章专属配方(女工+巧手专属除外)
 			UNWRAP                  = { has_component = { "unwrappable" } },	--快速拆包(拆可拆包包裹，has_handy_medal加速)
@@ -71,6 +75,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 	},
 	--丰收勋章组(单枚，medal_fastpicker快采)
 	harvestMedal = {
+		name = "丰收勋章",
 		action_ids = {
 			"MEDAL_QUICK_DRY",			--晾肉架一键晾干
 			"MEDAL_FASTPICK_MEATRACK",	--晾肉架快采

@@ -7,6 +7,7 @@ if not (GLOBAL.MedalAPI or TUNING.FUNCTIONAL_MEDAL_IS_OPEN) then
 end
 
 TUNING.HELPER_DEBUG_SWITCH = GetModConfigData("debug_switch")--调试开关
+TUNING.HELPER_MEDAL_UI_KEY = GetModConfigData("medal_ui_key")--轮椅开关快捷键(数字KEY或false)，顶层读取供客户端UI使用
 
 --加载顺序：规则配置先加载，供各逻辑模块读取
 modimport("scripts/helper_debug.lua")--调试日志
@@ -17,3 +18,5 @@ modimport("scripts/helper_crafting_patch.lua")--制作栏重建优化(客户端,
 modimport("scripts/helper_autoequip_rules.lua")--自动装备规则(勋章组等级)
 modimport("scripts/helper_autoequip_actions.lua")--自动装备动作配置
 modimport("scripts/helper_autoequip.lua")--自动装备
+modimport("scripts/helper_medal_rpc.lua")--轮椅开关RPC(组开关同步服务端)
+modimport("scripts/helper_medal_ui.lua")--轮椅开关UI(客户端)
