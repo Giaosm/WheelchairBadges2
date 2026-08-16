@@ -41,6 +41,22 @@ HelperRules_AUTO_EQUIP = {
 		-- "merm_certificate",		--鱼人勋章
 	},
 
+	--跨组优先级(数字越大越优先)。以动作名为key，该动作被多组命中且无融合勋章时，只装备优先级最高的那个。
+	--未配置的动作=不需要跨组对比，保持逐组装备逻辑。
+	CROSS_GROUP_PRIORITY = {
+		HARVEST = {
+			["cook_certificate"]     = 50,	--烹饪(需升级，优先)
+			["chef_certificate"]     = 50,	--大厨(需升级，优先)
+			["harvest_certificate"]  = 40,	--丰收(快收，优先于主厨)
+			["headchef_certificate"] = 30,	--主厨(最终，不需升级)
+		},
+	},
+
+	--水上保护勋章：玩家在水面(不在船上)时，自动装备不得把这些勋章从可提供水上行走的位置移走，防止掉水淹死
+	WATER_SAFE_MEDALS = {
+		"treadwater_certificate",	--踏水勋章
+	},
+
 	--勋章组(组名与能力勋章勋章上的grouptag一致)
 	Groups = {
 		--伐木勋章组

@@ -19,8 +19,7 @@ HelperRules_MEDAL_RULES = {
 	origin_certificate = {
 		tags = { "has_origin_medal" },
 	},
-	--丰收勋章
-	--注意：medal_fastpicker有作弊风险(采摘加速/晾肉架快采快干/本源果树翻倍)，待处理
+	--丰收勋章(自动装备已覆盖快采动作，执行时必佩戴对应勋章)
 	harvest_certificate = {
 		tags = { "medal_fastpicker" },
 	},

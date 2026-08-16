@@ -69,4 +69,18 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			--DISMANTLE             = { prefabs = { "winona_catapult", "winona_spotlight", "winona_battery_low", "winona_battery_high" } },	--拆除女工专属建筑(投石机/探照灯/发电机)【暂时不用】
 		},
 	},
+	--丰收勋章组(单枚，medal_fastpicker快采)
+	harvestMedal = {
+		action_ids = {
+			"MEDAL_QUICK_DRY",			--晾肉架一键晾干
+			"MEDAL_FASTPICK_MEATRACK",	--晾肉架快采
+			"MEDALMOONTREEHARVEST",		--采摘月树花(需植物勋章has_transplant_medal)
+			"MEDALTREEROCKSHARVEST",	--采摘巨石枝(需植物勋章has_transplant_medal)
+			"HARVEST",					--快速收获(无条件)
+		},
+		action_targets = {
+			PICK     = { exclude_tags = { "noquickpick" } },	--快速采摘，排除大垃圾堆(不能快采)
+			TAKEITEM = { tags = { "inventoryitemholder_take", "takeshelfitem" } },	--持有器/架子有物可取时快采
+		},
+	},
 }
