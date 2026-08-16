@@ -50,6 +50,11 @@ HelperRules_AUTO_EQUIP = {
 			["harvest_certificate"]  = 40,	--丰收(快收，优先于主厨)
 			["headchef_certificate"] = 30,	--主厨(最终，不需升级)
 		},
+		PICK = {
+			["transplant_certificate"] = 60,	--植物勋章(优先)
+			["plant_certificate"]      = 60,	--虫木勋章(优先)
+			["harvest_certificate"]    = 40,	--丰收勋章
+		},
 	},
 
 	--水上保护勋章：玩家在水面(不在船上)时，自动装备不得把这些勋章从可提供水上行走的位置移走，防止掉水淹死

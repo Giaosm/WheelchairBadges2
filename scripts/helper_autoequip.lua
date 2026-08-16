@@ -136,6 +136,18 @@ local function FindBestGroupMedal(player, group, preferredFusion)
 	return best, bestScore
 end
 
+--找玩家拥有的组内指定prefab的勋章(真勋章或复制勋章)；无则nil。用于"按勋章分组"条件指定装某枚勋章(如PICK采巨型→虫木、采带刺→植物)
+local function FindSpecificMedal(player, group, prefab)
+	if prefab == nil then return nil end
+	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
+		local eff = (item.prefab == "copy_blank_certificate" and item.medalname) or item.prefab
+		if eff == prefab and MEDAL_GROUP[eff] == group then
+			return item
+		end
+	end
+	return nil
+end
+
 --找最优融合勋章：等级高者优先，同分含目标勋章者优先。本源加成时强制本源勋章当容器
 local function FindBestFusionMedal(player, bestMedal)
 	--本源加成：优先选已含目标勋章的本源勋章，否则回退到第一个本源勋章
@@ -257,7 +269,7 @@ local player_decision_caches = {}
 --------------------------------组合装备--------------------------------
 --自动装备指定组的最优组合(带决策缓存)。action用于取目标(prefab)作为缓存维度，可为nil
 --usedSlots：本次自动装备流程已占用的融合勋章格子表(满格装多枚时避让用)，可为nil；protectWaterSafe海面保护时是否保留踏水
-local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectWaterSafe)
+local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectWaterSafe, medalPrefab)
 	if player == nil or not player:HasTag("player") then return end
 	local inv = player.components.inventory
 	if inv == nil then return end
@@ -270,8 +282,17 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectW
 
 	local current_equipped = GetEquippedMedal(player)
 
-	--第一轮：先定该组最优勋章(提前算，用于缓存精确判断与后续复用)
-	local bestMedal, bestScore = FindBestGroupMedal(player, group)
+	--第一轮：条件指定勋章(medalPrefab)时用指定prefab，否则组内最优(提前算，用于缓存精确判断与后续复用)
+	local bestMedal, bestScore
+	if medalPrefab ~= nil then
+		bestMedal = FindSpecificMedal(player, group, medalPrefab)
+		if bestMedal ~= nil then
+			bestScore = GetGroupScore(bestMedal, group)
+		end
+	end
+	if bestMedal == nil then
+		bestMedal, bestScore = FindBestGroupMedal(player, group)
+	end
 	if bestMedal == nil then return end--该组无可装备勋章
 
 	--缓存命中：动作+目标相同且未过期，且本组最优勋章已真正装备(直接佩戴或在当前融合勋章内)则静默
@@ -293,9 +314,11 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectW
 		if already then return end
 	end
 
-	--第二轮：有融合勋章时同分优先选已在其内的勋章，避免反复换位
+	--第二轮：有融合勋章时同分优先选已在其内的勋章，避免反复换位；条件指定勋章时不重新选(保持指定勋章)
 	local bestFusion = FindBestFusionMedal(player, bestMedal)
-	bestMedal, bestScore = FindBestGroupMedal(player, group, bestFusion)
+	if medalPrefab == nil then
+		bestMedal, bestScore = FindBestGroupMedal(player, group, bestFusion)
+	end
 
 	--方案一：有融合勋章 → 组合装备(最优融合勋章 + 最优目标勋章)
 	if bestFusion ~= nil then
@@ -322,9 +345,12 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectW
 	end
 
 	--方案二：无融合勋章 → 直接装备最优目标勋章
+	--条件指定勋章时：当前已戴指定勋章则跳过，否则强制装指定勋章(不能因当前戴本组更高分勋章如植物而跳过)
 	local equippedScore = GetGroupScore(current_equipped, group)
-	if current_equipped ~= nil and equippedScore ~= nil and equippedScore >= bestScore then
-		return--已佩戴本组最优勋章
+	if medalPrefab ~= nil then
+		if current_equipped == bestMedal then return end
+	elseif current_equipped ~= nil and equippedScore ~= nil and equippedScore >= bestScore then
+		return--未指定勋章时才按"已佩戴本组最优"跳过
 	end
 	--inv:Equip会自动把物品从原位置取出(背包/装备槽/容器)，并把勋章槽旧物品放回背包
 	inv:Equip(bestMedal)
@@ -347,7 +373,14 @@ end
 --  action_ids     = { "CHOP", ... }                    => 无条件动作，条件为nil
 --  action_targets = { DIG = {tags/all_tags/prefabs} }  => 带条件动作，条件为对应表
 local ACTION_TO_GROUP = {}
-local function AddActionEntry(actionName, group, cond)
+--条件字段名集合：用于识别 action_targets 的值是"单个条件表"还是"按勋章分组"(key为勋章prefab)
+local COND_FIELDS = {
+	tags = true, all_tags = true, prefabs = true, has_component = true, props = true,
+	exclude_tags = true, exclude_all_tags = true, exclude_prefabs = true, hand_tags = true,
+	recipe_builder_tag = true, exclude_recipe_props = true, keep_recipe_builder_tag = true,
+}
+--cond可为单个条件表，也可为"按勋章分组"表({勋章prefab = 条件表,...})，后者每条指定装组内哪枚勋章(medal)
+local function AddActionEntry(actionName, group, cond, medal)
 	local action = ACTIONS[actionName]
 	if action == nil then
 		HelperDebug("自动装备: 未找到动作 %s(组%s)，跳过", tostring(actionName), group)
@@ -358,7 +391,7 @@ local function AddActionEntry(actionName, group, cond)
 		list = {}
 		ACTION_TO_GROUP[actionName] = list
 	end
-	table.insert(list, { group = group, cond = cond })
+	table.insert(list, { group = group, cond = cond, medal = medal })
 end
 for group, groupCfg in pairs(AUTO_EQUIP_ACTIONS) do
 	--1. 无条件动作
@@ -367,10 +400,25 @@ for group, groupCfg in pairs(AUTO_EQUIP_ACTIONS) do
 			AddActionEntry(actionName, group, nil)
 		end
 	end
-	--2. 带条件动作
+	--2. 带条件动作：值为"按勋章分组"表时，每条子条件带medal指定勋章；否则为单个条件表
 	if groupCfg.action_targets then
 		for actionName, cond in pairs(groupCfg.action_targets) do
-			AddActionEntry(actionName, group, cond)
+			if type(cond) == "table" then
+				--判断是否按勋章分组：不含任何条件字段名 → key全是勋章prefab；空表视为单个空条件
+				local grouped = true
+				for k in pairs(cond) do
+					if COND_FIELDS[k] then grouped = false break end
+				end
+				if grouped and next(cond) ~= nil then
+					for prefab, subcond in pairs(cond) do
+						AddActionEntry(actionName, group, subcond, prefab)
+					end
+				else
+					AddActionEntry(actionName, group, cond)
+				end
+			else
+				AddActionEntry(actionName, group, cond)
+			end
 		end
 	end
 end
@@ -429,6 +477,17 @@ AddPlayerPostInit(function(inst)
 			end
 		end
 
+		--hand_tags：判断"手持物品(invobject)"带任一指定标签即整体通过(短路)，用于DEPLOY等目标为地面/空的动作判断手持物(如种下农场作物种子)
+		--与下方目标条件(target的tags/prefabs)为"或"关系：hand_tags命中 或 目标条件命中 都算通过
+		if cond.hand_tags and #cond.hand_tags > 0 then
+			local handobj = bufferedaction.invobject
+			if handobj ~= nil then
+				for _, tag in ipairs(cond.hand_tags) do
+					if handobj:HasTag(tag) then return true end
+				end
+			end
+		end
+
 		--要求字段：目标相关判断需有目标才执行(无目标时跳过，避免HasTag nil报错)
 		if target ~= nil then
 			if cond.tags and #cond.tags > 0 then--带任一指定标签即通过
@@ -456,6 +515,13 @@ AddPlayerPostInit(function(inst)
 					if target.components and target.components[c] ~= nil then hit = true break end
 				end
 				if not hit then return false end
+			end
+			if cond.props then--须满足指定属性(如is_oversized)：属性值为true表示目标须有此属性且为真，false表示须无/为假
+				for prop, val in pairs(cond.props) do
+					if (val and not target[prop]) or (not val and target[prop]) then
+						return false
+					end
+				end
 			end
 		else
 			--无目标时：除非条件依赖配方判断(recipe_builder_tag/exclude_recipe_props/keep_recipe_builder_tag)，否则不触发
@@ -545,7 +611,14 @@ AddPlayerPostInit(function(inst)
 			local bestEntry, bestPriority = nil, nil
 			for _, entry in ipairs(entries) do
 				if IsGroupEnabled(inst, entry.group) and MatchActionTarget(bufferedaction, entry.cond) then
-					local bestMedal = FindBestGroupMedal(inst, entry.group)
+					--指定勋章(entry.medal)优先用其查优先级；否则用组内最优勋章查
+					local bestMedal = nil
+					if entry.medal ~= nil then
+						bestMedal = FindSpecificMedal(inst, entry.group, entry.medal)
+					end
+					if bestMedal == nil then
+						bestMedal = FindBestGroupMedal(inst, entry.group)
+					end
 					if bestMedal ~= nil then
 						local prefab = (bestMedal.prefab == "copy_blank_certificate" and bestMedal.medalname) or bestMedal.prefab
 						local prio = cross_priority[prefab]
@@ -557,7 +630,7 @@ AddPlayerPostInit(function(inst)
 			end
 			--命中的组里有勋章在优先级表内 → 只装备优先级最高的组
 			if bestEntry ~= nil then
-				AutoEquipMedalForGroup(inst, bestEntry.group, bufferedaction, usedSlots, protectWaterSafe)
+				AutoEquipMedalForGroup(inst, bestEntry.group, bufferedaction, usedSlots, protectWaterSafe, bestEntry.medal)
 				return
 			end
 			--否则(命中组的勋章都不在优先级表)回退到逐组装备
@@ -565,7 +638,7 @@ AddPlayerPostInit(function(inst)
 
 		for _, entry in ipairs(entries) do
 			if IsGroupEnabled(inst, entry.group) and MatchActionTarget(bufferedaction, entry.cond) then
-				AutoEquipMedalForGroup(inst, entry.group, bufferedaction, usedSlots, protectWaterSafe)
+				AutoEquipMedalForGroup(inst, entry.group, bufferedaction, usedSlots, protectWaterSafe, entry.medal)
 			end
 		end
 		end

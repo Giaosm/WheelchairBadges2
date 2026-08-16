@@ -14,6 +14,8 @@
 --          动作 = { all_tags       = { "tag" } },            -- 目标必须带"全部"指定标签才满足
 --          动作 = { prefabs        = { "prefab" } },         -- 目标为指定预制件才满足
 --          动作 = { has_component  = { "stewer" } },         -- 目标带"任一"指定组件才满足(如锅的stewer)
+--          动作 = { props          = { is_oversized = true } }, -- 目标须满足指定属性(如农场作物植株的is_oversized)，值true=须有且为真，false=须无/为假
+--          动作 = { hand_tags      = { "deployedfarmplant" } }, -- 手持物品(invobject)带"任一"指定标签即整体通过(与目标条件为"或"关系，常用于DEPLOY种下种子)
 --          动作 = { recipe_builder_tag = { "seasoningchef" } }, -- 制作配方的builder_tag命中才触发(区分勋章专属配方，如BUILD)
 --          动作 = { exclude_recipe_props = { "builder_tag" } }, -- 制作配方带指定属性(如builder_tag)则排除(其他勋章专属)
 --          动作 = { keep_recipe_builder_tag = { "handyperson" } }, -- 被exclude_recipe_props排除时，builder_tag命中此列表的保留(自己的专属配方)
@@ -23,6 +25,8 @@
 -- 说明：
 --   - 一个勋章组可同时有 action_ids(无条件) 和 action_targets(带条件)，也可只有其一
 --   - 任一动作执行时，只会从该动作所属的勋章组里挑选最高级勋章装备，不会跨组误装
+--   - 同一动作要"按勋章分别限制"时，可用"按勋章分组"写法：动作 = { 勋章prefab = 条件表, ... }，
+--     命中对应子条件则装组内该枚勋章(如 PICK = { transplant_certificate = {tags={"thorny"}}, plant_certificate = {props={is_oversized=true}} })
 --==============================================================================
 HelperRules_AUTO_EQUIP_ACTIONS = {
 	--伐木勋章组
@@ -79,13 +83,36 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		action_ids = {
 			"MEDAL_QUICK_DRY",			--晾肉架一键晾干
 			"MEDAL_FASTPICK_MEATRACK",	--晾肉架快采
-			"MEDALMOONTREEHARVEST",		--采摘月树花(需植物勋章has_transplant_medal)
-			"MEDALTREEROCKSHARVEST",	--采摘巨石枝(需植物勋章has_transplant_medal)
 			"HARVEST",					--快速收获(无条件)
 		},
 		action_targets = {
 			PICK     = { exclude_tags = { "noquickpick" } },	--快速采摘，排除大垃圾堆(不能快采)
 			TAKEITEM = { tags = { "inventoryitemholder_take", "takeshelfitem" } },	--持有器/架子有物可取时快采
+		},
+	},
+	--植物勋章组
+	plantMedal = {
+		name = "植物勋章",
+		action_ids = {
+			"MEDALTRANSPLANT",			--月光移植
+			"MEDALNORMALTRANSPLANT",	--普通移植
+			"GIVEROOTCHESTLIFE",		--树根宝箱复苏
+			"MAKEMUSHTREE",				--变成蘑菇树(本源勋章可绕过月光限制)
+			"MAKEMANDRAKEPLANT",		--复活曼德拉(本源勋章可绕过月光限制)
+			"GRAFTING_TREE",			--嫁接
+			"PUT_IN_THE_SEEDS",			--塞入种子
+			"MEDAL_FRUIT_TREE_LEVEL_UP",--嫁接树升级
+			"MEDALMOONTREEHARVEST",		--采摘月树花(需本源勋章+植物勋章)
+			"MEDALTREEROCKSHARVEST",	--采摘巨石枝(需本源勋章+植物勋章)
+			"PLANTSOIL",				--种田(需plantkin标签)
+		},
+		action_targets = {
+			DEPLOY  = { hand_tags = { "deployedfarmplant" } },	--种下农场作物种子(手持物带deployedfarmplant标签)
+			PICK    = {
+				transplant_certificate = { tags = { "thorny" } },	--采带刺植物(thorny标签)戴植物勋章
+				plant_certificate = { props = { is_oversized = true }, exclude_tags = { "farm_plant_killjoy" } },	--采巨型作物(is_oversized)戴虫木勋章，排除腐烂作物
+			},
+			HARVEST = { prefabs = { "waterplant" } },	--收获藤壶(戴植物勋章带plantkin免被海草攻击)
 		},
 	},
 }

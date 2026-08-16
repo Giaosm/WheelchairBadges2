@@ -17,7 +17,7 @@ HelperRules_MEDAL_RULES = {
 	wisdom_certificate = {
 		tags = { "bookbuilder", "wisdombuilder", "reader" },
 	},
-	--本源勋章
+	--本源勋章(已完成)
 	origin_certificate = {
 		tags = { "has_origin_medal" },
 	},
@@ -34,12 +34,14 @@ HelperRules_MEDAL_RULES = {
 	merm_certificate = {
 		tags = { "merm_builder", --[[ "merm", "playermerm", "stronggrip", "mermfluent" ]] },
 	},
-	--虫木勋章
+	--虫木勋章(植物组已完成)
 	plant_certificate = {
+		group = "plantMedal",
 		tags = { "plantkin", "has_plant_medal" },
 	},
-	--植物勋章
+	--植物勋章(植物组已完成)
 	transplant_certificate = {
+		group = "plantMedal",
 		tags = { "plantkin", "has_plant_medal", "has_transplant_medal" },
 	},
 	--蜘蛛勋章
