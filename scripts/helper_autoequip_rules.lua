@@ -33,11 +33,11 @@ HelperRules_AUTO_EQUIP = {
 		-- "large_devour_soul_certificate",--高级噬魂勋章
 		-- "bee_king_certificate",	--蜂王勋章
 		-- "largefishing_certificate",--渔翁勋章(高级)
-		-- "space_time_certificate",--时空勋章
+		"space_time_certificate",	--时空勋章
 		-- "silence_certificate",	--沉默勋章
 		-- "bathingfire_certificate",--浴火勋章
 		-- "shadowmagic_certificate",--暗影勋章
-		-- "childlike_certificate",	--童真勋章
+		"childlike_certificate",	--童真勋章
 		-- "merm_certificate",		--鱼人勋章
 	},
 
@@ -45,17 +45,26 @@ HelperRules_AUTO_EQUIP = {
 	--未配置的动作=不需要跨组对比，保持逐组装备逻辑。
 	CROSS_GROUP_PRIORITY = {
 		HARVEST = {
-			["transplant_certificate"] = 60,	--植物勋章(优先)
-			["plant_certificate"]      = 60,	--虫木勋章(优先)
-			["cook_certificate"]     = 50,	--烹饪(需升级，优先)
-			["chef_certificate"]     = 50,	--大厨(需升级，优先)
-			["harvest_certificate"]  = 40,	--丰收(快收，优先于主厨)
-			["headchef_certificate"] = 30,	--主厨(最终，不需升级)
+			["transplant_certificate"] = 40,	--植物勋章(采取藤壶)
+			["plant_certificate"]      = 40,	--虫木勋章(采取藤壶)
+			["cook_certificate"]     = 30,	--烹饪(收料理升级)
+			["chef_certificate"]     = 30,	--大厨(收料理升级)
+			["harvest_certificate"]  = 20,	--丰收(快收料理)
+			["headchef_certificate"] = 10,	--主厨(收料理兜底)
 		},
 		PICK = {
-			["transplant_certificate"] = 60,	--植物勋章(优先)
-			["plant_certificate"]      = 60,	--虫木勋章(优先)
-			["harvest_certificate"]    = 40,	--丰收勋章
+			["transplant_certificate"] = 20,	--植物勋章(采摘带刺植物)
+			["plant_certificate"]      = 20,	--虫木勋章(收巨大农作物升级)
+			["harvest_certificate"]    = 10,	--丰收勋章(快采兜底)
+		},
+		MEDAL_GRINDING = {
+			["headchef_certificate"]   = 30,	--主厨(提供seasoningchef，真正研磨)
+			["space_time_certificate"] = 20,	--时空(整组研磨)
+			["handy_certificate"]      = 10,	--巧手(加速研磨)
+		},
+		READ = {
+			["wisdom_certificate"]     = 20,	--智慧勋章(阅读能力)
+			["space_time_certificate"] = 10,	--时空勋章(变更季节)
 		},
 	},
 
@@ -101,6 +110,17 @@ HelperRules_AUTO_EQUIP = {
 		--智慧勋章组(只含智慧勋章，蒙昧勋章单独处理不自动装备)
 		wisdomMedal = {
 			"wisdom_certificate",		--智慧(最终)
+		},
+		--速度/空间/时空勋章组
+		speedMedal = {
+			"space_time_certificate",	--时空(最终)
+			"space_certificate",		--空间
+			"speed_certificate",		--速度
+		},
+		--童真勋章组
+		childMedal = {
+			"childlike_certificate",	--童真(最终)
+			"childishness_certificate",	--童心(前置)
 		},
 	},
 }

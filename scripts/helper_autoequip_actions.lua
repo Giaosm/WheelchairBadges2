@@ -16,6 +16,8 @@
 --          动作 = { has_component  = { "stewer" } },         -- 目标带"任一"指定组件才满足(如锅的stewer)
 --          动作 = { props          = { is_oversized = true } }, -- 目标须满足指定属性(如农场作物植株的is_oversized)，值true=须有且为真，false=须无/为假
 --          动作 = { hand_tags      = { "deployedfarmplant" } }, -- 手持物品(invobject)带"任一"指定标签即整体通过(与目标条件为"或"关系，常用于DEPLOY种下种子)
+--          动作 = { season_fish    = { prefab="season" } },      -- [必要条件]玩家周围献祭范围(BOOK_SACRIFICE_RADIUS)有指定季节鱼(地上实体)且当前季节≠对应季节才可触发(换季献祭需勋章)，未命中则return false(与目标prefabs判断为"与"关系)
+--          动作 = { slingshot_ammo = { "ammo" } },               -- [必要条件]手持弹弓当前装的弹药是"任一"指定prefab才触发(如沙刺弹medalslingshotammo_sandspike)
 --          动作 = { recipe_builder_tag = { "seasoningchef" } }, -- 制作配方的builder_tag命中才触发(区分勋章专属配方，如BUILD)
 --          动作 = { exclude_recipe_props = { "builder_tag" } }, -- 制作配方带指定属性(如builder_tag)则排除(其他勋章专属)
 --          动作 = { keep_recipe_builder_tag = { "handyperson" } }, -- 被exclude_recipe_props排除时，builder_tag命中此列表的保留(自己的专属配方)
@@ -68,6 +70,9 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 	--巧手勋章组
 	handyMedal = {
 		name = "巧手勋章",
+		action_ids = {
+			"MEDAL_GRINDING",	--研磨(戴巧手勋章缩短动作domediumaction)
+		},
 		action_targets = {
 			BUILD                   = { exclude_recipe_props = { "builder_tag" }, keep_recipe_builder_tag = { "handyperson", "has_handy_medal" } },	--制作所有东西(快速制作)，排除其他勋章专属配方(女工+巧手专属除外)
 			UNWRAP                  = { has_component = { "unwrappable" } },	--快速拆包(拆可拆包包裹，has_handy_medal加速)
@@ -123,6 +128,27 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		action_targets = {
 			BUILD = { recipe_builder_tag = { "wisdombuilder", "bookbuilder" } },	--制作陷阱重置册(智慧勋章专属配方)或原版书籍(bookbuilder)
 			READ   = { tags = { "bookcabinet_item" }, exclude_tags = { "simplebook" }, exclude_prefabs = { "closed_book" } },	--读书(可放入书桌/书架的书，排除普通就能读的烹饪书simplebook和无字天书closed_book)
+		},
+	},
+	--时空勋章组
+	speedMedal = {
+		name = "时空勋章",
+		action_ids = {
+			"MEDAL_GRINDING",		--整组研磨(时空勋章+主厨勋章)
+			"MEDALFEEDBIRD",		--整组喂鸟(时空勋章+本源)
+			"MEDALDELIVERYTREASURE",--快速挖宝(时空勋章+本源)
+		},
+		action_targets = {
+			BUILD = { recipe_builder_tag = { "spacetime_medal" } },	--制作时空专属配方(琥珀灵石/水晶球/改命药水/时空符文/时空尘蛾窝等)
+			READ   = { prefabs = { "unsolved_book" }, season_fish = { oceanfish_small_7_inv = "spring", oceanfish_small_8_inv = "summer", oceanfish_small_6_inv = "autumn", oceanfish_medium_8_inv = "winter" } },	--阅读未解之谜书献祭季节鱼换季(时空勋章)
+			ATTACK = { slingshot_ammo = { "medalslingshotammo_sandspike" } },	--弹弓装沙刺弹攻击(佩戴时空勋章无视地形生成时空之刃)
+		},
+	},
+	--童真勋章组(占位，动作待补)
+	childMedal = {
+		name = "童真勋章",
+		action_targets = {
+			--TODO: 弹弓射击/组装等动作
 		},
 	},
 }

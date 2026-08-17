@@ -20,6 +20,11 @@ HelperRules_MEDAL_RULES = {
 		tags = { "bookbuilder", "wisdombuilder" },
 		components = { "reader" },
 	},
+	--时空勋章(速度组已完成)
+	space_time_certificate = {
+		group = "speedMedal",
+		tags = { "spacetime_medal" },
+	},
 	--本源勋章(已完成)
 	origin_certificate = {
 		tags = { "has_origin_medal" },
@@ -56,14 +61,16 @@ HelperRules_MEDAL_RULES = {
 	bathingfire_certificate = {
 		tags = { "has_bathfire_medal", --[[ "pyromaniac", "bernieowner", "expertchef" ]] },
 	},
-	--童心勋章
+	--童心勋章(童真组)
 	--storyteller走组件：原版讲故事判定需components.storyteller(组件构造自动带storyteller标签)
 	childishness_certificate = {
+		group = "childMedal",
 		tags = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness" },
 		components = { "storyteller" },
 	},
-	--童真勋章
+	--童真勋章(童真组)
 	childlike_certificate = {
+		group = "childMedal",
 		tags = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness", "senior_childishness" },
 		components = { "storyteller" },
 	},

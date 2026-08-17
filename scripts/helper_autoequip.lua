@@ -378,6 +378,7 @@ local COND_FIELDS = {
 	tags = true, all_tags = true, prefabs = true, has_component = true, props = true,
 	exclude_tags = true, exclude_all_tags = true, exclude_prefabs = true, hand_tags = true,
 	recipe_builder_tag = true, exclude_recipe_props = true, keep_recipe_builder_tag = true,
+	season_fish = true, slingshot_ammo = true,
 }
 --cond可为单个条件表，也可为"按勋章分组"表({勋章prefab = 条件表,...})，后者每条指定装组内哪枚勋章(medal)
 local function AddActionEntry(actionName, group, cond, medal)
@@ -486,6 +487,41 @@ AddPlayerPostInit(function(inst)
 					if handobj:HasTag(tag) then return true end
 				end
 			end
+		end
+
+		--season_fish：必要条件(与目标判断为"与"关系)。未解之谜献祭范围内(玩家周围)有季节鱼且当前季节≠该鱼对应季节才可触发(换季献祭需时空勋章)
+		--注：与hand_tags不同，这里不短路通过，只作前置校验；目标是否未解之谜书由下方prefabs判断
+		if cond.season_fish then
+			local found = false
+			local doer = bufferedaction.doer
+			if doer ~= nil then
+				local x, y, z = doer.Transform:GetWorldPosition()
+				local radius = (TUNING_MEDAL and TUNING_MEDAL.BOOK_SACRIFICE_RADIUS) or 4
+				local ents = TheSim:FindEntities(x, y, z, radius, nil, { "INLIMBO", "player", "fx" })
+				for _, v in ipairs(ents) do
+					local fishSeason = cond.season_fish[v.prefab]
+					if fishSeason ~= nil and TheWorld and TheWorld.state and TheWorld.state.season ~= fishSeason then
+						found = true
+						break
+					end
+				end
+			end
+			if not found then return false end
+		end
+
+		--slingshot_ammo：[必要条件]玩家手持弹弓(HANDS槽)当前装填弹药(weapon.projectile=ammo.."_proj")是任一指定prefab才触发。未命中return false，与目标判断为"与"关系
+		if cond.slingshot_ammo and #cond.slingshot_ammo > 0 then
+			local doer = bufferedaction.doer
+			local slingshot = doer and doer.components.inventory and doer.components.inventory:GetEquippedItem(GLOBAL.EQUIPSLOTS.HANDS)
+			local proj_prefab = slingshot and slingshot.components and slingshot.components.weapon and slingshot.components.weapon.projectile
+			local match = false
+			if proj_prefab ~= nil then
+				for _, ap in ipairs(cond.slingshot_ammo) do
+					if proj_prefab == (ap .. "_proj") then match = true break end
+				end
+			end
+			HelperDebug("slingshot弹药判断: 弹弓=%s 弹药投射物=%s 命中=%s", slingshot and slingshot.prefab or "nil", tostring(proj_prefab), tostring(match))
+			if not match then return false end
 		end
 
 		--要求字段：目标相关判断需有目标才执行(无目标时跳过，避免HasTag nil报错)
