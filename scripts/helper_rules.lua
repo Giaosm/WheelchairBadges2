@@ -13,8 +13,9 @@ HelperRules_MEDAL_RULES = {
 		group = "chefMedal",
 		tags = { "masterchef", "professionalchef", "expertchef", "seasoningchef" },
 	},
-	--智慧勋章
+	--智慧勋章(智慧组已完成)
 	wisdom_certificate = {
+		group = "wisdomMedal",
 		tags = { "bookbuilder", "wisdombuilder", "reader" },
 	},
 	--本源勋章(已完成)

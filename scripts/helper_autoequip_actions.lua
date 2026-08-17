@@ -107,12 +107,22 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			"PLANTSOIL",				--种田(需plantkin标签)
 		},
 		action_targets = {
+			BUILD   = { recipe_builder_tag = { "has_plant_medal", "has_transplant_medal" } },	--制作植物专属配方(月光权杖/月光锤/月光网/肥料包等)
 			DEPLOY  = { hand_tags = { "deployedfarmplant" } },	--种下农场作物种子(手持物带deployedfarmplant标签)
 			PICK    = {
 				transplant_certificate = { tags = { "thorny" } },	--采带刺植物(thorny标签)戴植物勋章
 				plant_certificate = { props = { is_oversized = true }, exclude_tags = { "farm_plant_killjoy" } },	--采巨型作物(is_oversized)戴虫木勋章，排除腐烂作物
 			},
 			HARVEST = { prefabs = { "waterplant" } },	--收获藤壶(戴植物勋章带plantkin免被海草攻击)
+		},
+	},
+
+	--智慧勋章组
+	wisdomMedal = {
+		name = "智慧勋章",
+		action_targets = {
+			BUILD = { recipe_builder_tag = { "wisdombuilder", "bookbuilder" } },	--制作陷阱重置册(智慧勋章专属配方)或原版书籍(bookbuilder)
+			READ   = { tags = { "bookcabinet_item" }, exclude_tags = { "simplebook" }, exclude_prefabs = { "closed_book" } },	--读书(可放入书桌/书架的书，排除普通就能读的烹饪书simplebook和无字天书closed_book)
 		},
 	},
 }

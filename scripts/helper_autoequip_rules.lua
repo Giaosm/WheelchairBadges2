@@ -20,7 +20,7 @@ HelperRules_AUTO_EQUIP = {
 		"headchef_certificate",		--主厨勋章
 		"handy_certificate",		--巧手勋章
 		"harvest_certificate",		--丰收勋章
-		-- "wisdom_certificate",	--智慧勋章
+		"wisdom_certificate",		--智慧勋章
 		"transplant_certificate",	--植物勋章
 		-- "justice_certificate",	--正义勋章
 		-- "valkyrie_certificate",	--女武神勋章
@@ -97,6 +97,10 @@ HelperRules_AUTO_EQUIP = {
 		plantMedal = {
 			"transplant_certificate",	--植物(最终)
 			"plant_certificate",		--虫木(前置)
+		},
+		--智慧勋章组(只含智慧勋章，蒙昧勋章单独处理不自动装备)
+		wisdomMedal = {
+			"wisdom_certificate",		--智慧(最终)
 		},
 	},
 }

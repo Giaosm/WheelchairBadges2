@@ -10,7 +10,7 @@ local GLOBAL_ImageButton = GLOBAL.require("widgets/imagebutton")
 local GLOBAL_TEMPLATES = GLOBAL.require("widgets/redux/templates")
 
 --勋章组列表(自动装备组，取helper_autoequip_actions.lua的name)
-local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal" }
+local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal" }
 local UI_GROUPS = {}
 for _, g in ipairs(UI_GROUP_ORDER) do
 	table.insert(UI_GROUPS, { group = g,
@@ -198,7 +198,42 @@ function MedalUIScreen:Close()
 	TheFrontEnd:PopScreen(self)
 end
 
+--打字/输入状态检测(参考T键模组)：正在聊天/控制台/搜索栏等输入时不触发快捷键
+local function IsTypingActive()
+	local FE = TheFrontEnd
+	if FE == nil then return false end
+	--1. 屏幕名：聊天输入/控制台/调试菜单
+	local screen = FE:GetActiveScreen()
+	if screen ~= nil then
+		local name = screen.name or ""
+		if name == "ChatInputScreen" or name == "ConsoleScreen" or name == "DebugMenuScreen" then
+			return true
+		end
+		--2. 屏幕上有编辑框
+		if screen.edit_text ~= nil then return true end
+	end
+	--3. 引擎正强制处理文本输入(聊天/控制台/搜索栏等)
+	if FE.forceProcessText == true and FE.textProcessorWidget ~= nil then return true end
+	--4. 焦点控件链上有正在编辑的TextEdit(如制作面板搜索栏等自建输入框)
+	local focus = FE:GetFocusWidget()
+	local function FindEditing(widget, visited)
+		if widget == nil or visited[widget] then return false end
+		visited[widget] = true
+		if widget.editing == true then return true end
+		if FindEditing(widget.parent, visited) then return true end
+		if widget.children then
+			for _, child in ipairs(widget.children) do
+				if FindEditing(child, visited) then return true end
+			end
+		end
+		return false
+	end
+	if focus ~= nil and FindEditing(focus, {}) then return true end
+	return false
+end
+
 GLOBAL.ToggleMedalUI = function()
+	if IsTypingActive() then return end--正在打字输入时不触发快捷键
 	local cur = TheFrontEnd:GetActiveScreen()
 	if cur ~= nil and cur.medal_ui_active then
 		cur:Close()
