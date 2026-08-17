@@ -19,4 +19,5 @@ modimport("scripts/helper_autoequip_rules.lua")--自动装备规则(勋章组等
 modimport("scripts/helper_autoequip_actions.lua")--自动装备动作配置
 modimport("scripts/helper_autoequip.lua")--自动装备
 modimport("scripts/helper_medal_rpc.lua")--轮椅开关RPC(组开关同步服务端)
+modimport("scripts/helper_wisdom_autoexam.lua")--蒙昧勋章自动答题(服务端)
 modimport("scripts/helper_medal_ui.lua")--轮椅开关UI(客户端)

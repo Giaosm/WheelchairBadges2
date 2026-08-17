@@ -9,12 +9,15 @@ local GLOBAL_Text = GLOBAL.require("widgets/text")
 local GLOBAL_ImageButton = GLOBAL.require("widgets/imagebutton")
 local GLOBAL_TEMPLATES = GLOBAL.require("widgets/redux/templates")
 
---勋章组列表(自动装备组，取helper_autoequip_actions.lua的name)
-local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal" }
+--勋章组列表(自动装备组，取helper_autoequip_actions.lua的name；特殊开关如autoexam自动答题走额外名字映射)
+local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "autoexam" }
+--非自动装备组的开关中文名
+local UI_EXTRA_NAMES = { autoexam = "自动答题" }
 local UI_GROUPS = {}
 for _, g in ipairs(UI_GROUP_ORDER) do
-	table.insert(UI_GROUPS, { group = g,
-		name = (HelperRules_AUTO_EQUIP_ACTIONS[g] and HelperRules_AUTO_EQUIP_ACTIONS[g].name) or g })
+	local name = (HelperRules_AUTO_EQUIP_ACTIONS[g] and HelperRules_AUTO_EQUIP_ACTIONS[g].name)
+		or UI_EXTRA_NAMES[g] or g
+	table.insert(UI_GROUPS, { group = g, name = name })
 end
 
 --跨局存储：TheSim持久化(客户端本地，参考能力勋章medal_globalfn.lua)，统一存{group_enabled, medal_key}
