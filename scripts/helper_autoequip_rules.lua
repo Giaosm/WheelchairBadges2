@@ -23,7 +23,7 @@ HelperRules_AUTO_EQUIP = {
 		"harvest_certificate",		--丰收勋章
 		"wisdom_certificate",		--智慧勋章
 		"transplant_certificate",	--植物勋章
-		-- "justice_certificate",	--正义勋章
+		"justice_certificate",	--正义勋章
 		-- "valkyrie_certificate",	--女武神勋章
 		"naughty_certificate",	--淘气勋章
 		-- "down_filled_coat_certificate",--羽绒服勋章
@@ -36,7 +36,7 @@ HelperRules_AUTO_EQUIP = {
 		"largefishing_certificate",	--渔翁勋章(高级)
 		"space_time_certificate",	--时空勋章
 		-- "silence_certificate",	--沉默勋章
-		-- "bathingfire_certificate",--浴火勋章
+		"bathingfire_certificate",	--浴火勋章
 		"shadowmagic_certificate",	--暗影勋章
 		"childlike_certificate",	--童真勋章
 		-- "merm_certificate",		--鱼人勋章
@@ -77,6 +77,16 @@ HelperRules_AUTO_EQUIP = {
 			["chef_certificate"]          = 20,	--大厨(快速杀一切)
 			["largefishing_certificate"]  = 10,	--渔翁(快速杀鱼)
 			["mediumfishing_certificate"] = 10,	--垂钓(快速杀鱼)
+		},
+		COOK = {
+			["headchef_certificate"]   = 20,	--主厨(快速烹饪)
+			["chef_certificate"]       = 20,	--大厨(快速烹饪)
+			["bathingfire_certificate"] = 10,	--浴火(快速烹饪)
+		},
+		MAKECOOLDOWN = {
+			["headchef_certificate"]   = 20,	--主厨(强制冷却)
+			["chef_certificate"]       = 20,	--大厨(强制冷却)
+			["bathingfire_certificate"] = 10,	--浴火(强制冷却)
 		},
 	},
 
@@ -139,7 +149,7 @@ HelperRules_AUTO_EQUIP = {
 			"handy_certificate",		--巧手(最终)
 			"handy_test_certificate",	--巧手考验(前置)
 		},
-		--丰收勋章(单枚，无grouptag，视为单勋章组)
+		--丰收勋章
 		harvestMedal = {
 			"harvest_certificate",		--丰收(最终)
 		},
@@ -152,7 +162,7 @@ HelperRules_AUTO_EQUIP = {
 		wisdomMedal = {
 			"wisdom_certificate",		--智慧(最终)
 		},
-		--速度/空间/时空勋章组
+		--时空勋章组
 		speedMedal = {
 			"space_time_certificate",	--时空(最终)
 			"space_certificate",		--空间
@@ -163,11 +173,11 @@ HelperRules_AUTO_EQUIP = {
 			"childlike_certificate",	--童真(最终)
 			"childishness_certificate",	--童心(前置)
 		},
-		--暗影勋章组(单枚，无grouptag，视为单勋章组)
+		--暗影勋章
 		shadowmagicMedal = {
 			"shadowmagic_certificate",	--暗影(最终)
 		},
-		--淘气勋章组(单枚，无grouptag，视为单勋章组)
+		--淘气勋章
 		naughtyMedal = {
 			"naughty_certificate",	--淘气(最终)
 		},
@@ -176,6 +186,15 @@ HelperRules_AUTO_EQUIP = {
 			"largefishing_certificate",	--渔翁(最终)
 			"mediumfishing_certificate",	--垂钓
 			"smallfishing_certificate",	--钓鱼
+		},
+		--浴火勋章
+		bathfireMedal = {
+			"bathingfire_certificate",	--浴火(最终)
+		},
+		--正义勋章组(逮捕优先，后续按目标分组)
+		justiceMedal = {
+			"arrest_certificate",	--逮捕(前置)
+			"justice_certificate",	--正义(最终)
 		},
 	},
 }

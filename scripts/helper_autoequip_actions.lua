@@ -12,14 +12,14 @@
 --          动作 = { exclude_all_tags = { "a" } },          -- 目标带"全部"指定标签才排除
 --          动作 = { exclude_prefabs  = { "a" } },          -- 目标为指定预制件则排除
 --          --要求字段(组合时须同时满足)：
---          动作 = { tags           = { "tree", "stump" } },  -- 目标带"任一"指定标签即满足
+--          动作 = { tags           = { "tree", "stump" } },  -- 目标带"任一"指定标签即满足；支持"prefab:xxx"前缀匹配目标prefab(与标签为"或"关系)
 --          动作 = { all_tags       = { "tag" } },            -- 目标必须带"全部"指定标签才满足
 --          动作 = { prefabs        = { "prefab" } },         -- 目标为指定预制件才满足
 --          动作 = { has_component  = { "stewer" } },         -- 目标带"任一"指定组件才满足(如锅的stewer)
 --          动作 = { props          = { is_oversized = true } }, -- 目标须满足指定属性(如农场作物植株的is_oversized)，值true=须有且为真，false=须无/为假
 --          动作 = { hand_tags      = { "deployedfarmplant" } }, -- 手持物品(invobject)带"任一"指定标签即整体通过(与目标条件为"或"关系，常用于DEPLOY种下种子)
 --          动作 = { season_fish    = { prefab="season" } },      -- [必要条件]玩家周围献祭范围(BOOK_SACRIFICE_RADIUS)有指定季节鱼(地上实体)且当前季节≠对应季节才可触发(换季献祭需勋章)，未命中则return false(与目标prefabs判断为"与"关系)
---          动作 = { slingshot_ammo = { "ammo" } },               -- [必要条件]手持弹弓当前装的弹药是"任一"指定prefab才触发(如沙刺弹medalslingshotammo_sandspike)
+--          动作 = { slingshot_ammo = { "ammo" } },               -- [必要条件]手持弹弓当前装的弹药是"任一"指定prefab才触发(如沙刺弹medalslingshotammo_sandspike)；支持"tag:xxx"前缀匹配弹药物品标签
 --          动作 = { recipe_builder_tag = { "seasoningchef" } }, -- 制作配方的builder_tag命中才触发(区分勋章专属配方，如BUILD)
 --          动作 = { exclude_recipe_props = { "builder_tag" } }, -- 制作配方带指定属性(如builder_tag)则排除(其他勋章专属)
 --          动作 = { keep_recipe_builder_tag = { "handyperson" } }, -- 被exclude_recipe_props排除时，builder_tag命中此列表的保留(自己的专属配方)
@@ -191,6 +191,32 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		action_targets = {
 			MURDER = { tags = { "fish" } },	--快速杀鱼(目标为鱼)
 			BUILD = { recipe_builder_tag = { "has_largefishing_medal" } },	--渔翁配方(特制鱼食)
+		},
+	},
+	--浴火勋章组
+	bathfireMedal = {
+		name = "浴火勋章",
+		action_ids = {
+			"COOK",	--快速烹饪(expertchef)
+			"MAKECOOLDOWN",	--强制冷却(expertchef)
+			"SMOTHER",	--灭火(pyromaniac快速灭火)
+			"MANUALEXTINGUISH",	--手动灭火(手持冻结物，pyromaniac加速)
+			"LIGHT",	--点火(pyromaniac快速点火)
+		},
+		action_targets = {
+			BUILD = { recipe_builder_tag = { "has_bathfire_medal", "pyromaniac" } },	--制作浴火专属配方/打火机/伯尼熊
+			ADDFUEL = { tags = { "campfire", "prefab:nightlight" } },	--给营火类(campfire标签)/夜灯(prefab:nightlight)加燃料(fuelmaster燃烧效率加成)
+			EQUIP = { prefabs = { "armor_medal_obsidian", "armor_blue_crystal", "armor_medal_space_time" } },	--装备红晶甲/蓝晶甲/时空晶甲(本源浴火反伤加成)
+		},
+	},
+	--正义勋章组
+	justiceMedal = {
+		name = "正义勋章",
+		action_targets = {
+			ATTACK = {
+				arrest_certificate = { prefabs = { "krampus", "medal_naughty_krampus" } },	--攻击坎普斯/复仇坎普斯戴逮捕勋章(击杀消耗耐久升级)
+				justice_certificate = { tags = { "epic", "monster", "norewardtoiler", "prefab:lightninggoat", "prefab:tentacle_pillar" } },	--攻击其他怪物戴正义勋章(获得正义值/触发掉落；闪电羊/巨型触手在justice_targetlist但无monster/epic标签，用prefab补充)
+			},
 		},
 	},
 }

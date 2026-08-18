@@ -79,21 +79,22 @@ HelperRules_MEDAL_RULES = {
 			no_portableengineer = { "basicengineer" },
 		},
 	},
+	--浴火勋章(浴火组已完成)
+	bathingfire_certificate = {
+		group = "bathfireMedal",
+		tags = { "has_bathfire_medal", "pyromaniac", "expertchef", --[[ "bernieowner" ]] },
+	},
 	--女武神勋章(未完成)
 	valkyrie_certificate = {
 		tags = { "valkyrie" },
 	},
-	--鱼人勋章(未完成)
-	merm_certificate = {
-		tags = { "merm_builder", --[[ "merm", "playermerm", "stronggrip", "mermfluent" ]] },
-	},
-	--浴火勋章(未完成)
-	bathingfire_certificate = {
-		tags = { "has_bathfire_medal", --[[ "pyromaniac", "bernieowner", "expertchef" ]] },
-	},
-	--蜘蛛勋章(未完成)
+	--鱼人勋章(未完成，暂不配置)
+	-- merm_certificate = {
+	-- 	tags = { "merm_builder", --[[ "merm", "playermerm", "stronggrip", "mermfluent" ]] },
+	-- },
+	--蜘蛛勋章(未完成，暂不配置)
 	--注意：spiderwhisperer有作弊风险(解锁韦伯蜘蛛配方+蜘蛛不攻击)，待处理
-	spider_certificate = {
-		tags = { "spiderwhisperer" },
-	},
+	-- spider_certificate = {
+	-- 	tags = { "spiderwhisperer" },
+	-- },
 }

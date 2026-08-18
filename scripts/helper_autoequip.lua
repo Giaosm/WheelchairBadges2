@@ -525,10 +525,13 @@ AddPlayerPostInit(function(inst)
 
 		--要求字段：目标相关判断需有目标才执行(无目标时跳过，避免HasTag nil报错)
 		if target ~= nil then
-			if cond.tags and #cond.tags > 0 then--带任一指定标签即通过
+			if cond.tags and #cond.tags > 0 then--带任一指定标签即通过；支持"prefab:xxx"前缀匹配目标prefab(与标签为"或"关系)
 				local hit = false
 				for _, tag in ipairs(cond.tags) do
-					if target:HasTag(tag) then hit = true break end
+					local prefab_name = string.match(tag, "^prefab:(.+)$")
+					if prefab_name ~= nil then
+						if target.prefab == prefab_name then hit = true break end
+					elseif target:HasTag(tag) then hit = true break end
 				end
 				if not hit then return false end
 			end
