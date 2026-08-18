@@ -25,7 +25,7 @@ HelperRules_AUTO_EQUIP = {
 		"transplant_certificate",	--植物勋章
 		-- "justice_certificate",	--正义勋章
 		-- "valkyrie_certificate",	--女武神勋章
-		-- "naughty_certificate",	--淘气勋章
+		"naughty_certificate",	--淘气勋章
 		-- "down_filled_coat_certificate",--羽绒服勋章
 		-- "blue_crystal_certificate",--蓝晶勋章
 		-- "ommateum_certificate",	--复眼勋章
@@ -33,7 +33,7 @@ HelperRules_AUTO_EQUIP = {
 		-- "tentacle_certificate",	--触手勋章
 		-- "large_devour_soul_certificate",--高级噬魂勋章
 		-- "bee_king_certificate",	--蜂王勋章
-		-- "largefishing_certificate",--渔翁勋章(高级)
+		"largefishing_certificate",	--渔翁勋章(高级)
 		"space_time_certificate",	--时空勋章
 		-- "silence_certificate",	--沉默勋章
 		-- "bathingfire_certificate",--浴火勋章
@@ -71,6 +71,12 @@ HelperRules_AUTO_EQUIP = {
 			["childlike_certificate"]     = 30,	--童真(弹弓射击)
 			["childishness_certificate"]  = 30,	--童心(弹弓射击)
 			["space_time_certificate"]    = 20,	--时空(沙刺弹时空之刃)
+		},
+		MURDER = {
+			["headchef_certificate"]      = 20,	--主厨(快速杀一切)
+			["chef_certificate"]          = 20,	--大厨(快速杀一切)
+			["largefishing_certificate"]  = 10,	--渔翁(快速杀鱼)
+			["mediumfishing_certificate"] = 10,	--垂钓(快速杀鱼)
 		},
 	},
 
@@ -160,6 +166,16 @@ HelperRules_AUTO_EQUIP = {
 		--暗影勋章组(单枚，无grouptag，视为单勋章组)
 		shadowmagicMedal = {
 			"shadowmagic_certificate",	--暗影(最终)
+		},
+		--淘气勋章组(单枚，无grouptag，视为单勋章组)
+		naughtyMedal = {
+			"naughty_certificate",	--淘气(最终)
+		},
+		--钓鱼勋章组
+		fishingMedal = {
+			"largefishing_certificate",	--渔翁(最终)
+			"mediumfishing_certificate",	--垂钓
+			"smallfishing_certificate",	--钓鱼
 		},
 	},
 }

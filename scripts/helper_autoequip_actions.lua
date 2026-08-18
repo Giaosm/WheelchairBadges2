@@ -173,4 +173,24 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			BUILD = { recipe_builder_tag = { "has_shadowmagic_medal" } },	--制作暗影魔法工具
 		},
 	},
+	--淘气勋章组
+	naughtyMedal = {
+		name = "淘气勋章",
+		action_targets = {
+			PLAY = { prefabs = { "medal_naughtybell" } },	--摇淘气铃铛
+		},
+	},
+	--钓鱼勋章组
+	fishingMedal = {
+		name = "钓鱼勋章",
+		action_ids = {
+			"FISH",	--陆地钓鱼(享受咬钩加速等加成)
+			"OCEAN_FISHING_CAST",	--海洋钓鱼投竿
+			"OCEAN_FISHING_REEL",	--海洋钓鱼收线
+		},
+		action_targets = {
+			MURDER = { tags = { "fish" } },	--快速杀鱼(目标为鱼)
+			BUILD = { recipe_builder_tag = { "has_largefishing_medal" } },	--渔翁配方(特制鱼食)
+		},
+	},
 }

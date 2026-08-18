@@ -33,14 +33,6 @@ HelperRules_MEDAL_RULES = {
 		group = "harvestMedal",
 		tags = { "medal_fastpicker" },
 	},
-	--女武神勋章
-	valkyrie_certificate = {
-		tags = { "valkyrie" },
-	},
-	--鱼人勋章
-	merm_certificate = {
-		tags = { "merm_builder", --[[ "merm", "playermerm", "stronggrip", "mermfluent" ]] },
-	},
 	--虫木勋章(植物组已完成)
 	plant_certificate = {
 		group = "plantMedal",
@@ -50,15 +42,6 @@ HelperRules_MEDAL_RULES = {
 	transplant_certificate = {
 		group = "plantMedal",
 		tags = { "plantkin", "has_plant_medal", "has_transplant_medal" },
-	},
-	--蜘蛛勋章
-	--注意：spiderwhisperer有作弊风险(解锁韦伯蜘蛛配方+蜘蛛不攻击)，待处理
-	spider_certificate = {
-		tags = { "spiderwhisperer" },
-	},
-	--浴火勋章
-	bathingfire_certificate = {
-		tags = { "has_bathfire_medal", --[[ "pyromaniac", "bernieowner", "expertchef" ]] },
 	},
 	--童心勋章(童真组已完成)
 	childishness_certificate = {
@@ -78,6 +61,16 @@ HelperRules_MEDAL_RULES = {
 		tags = { "shadowmagic", "has_shadowmagic_medal" },
 		components = { "magician" },
 	},
+	--垂钓勋章(钓鱼组已完成)
+	mediumfishing_certificate = {
+		group = "fishingMedal",
+		tags = { "fast_kill_fish" },
+	},
+	--渔翁勋章(钓鱼组已完成)
+	largefishing_certificate = {
+		group = "fishingMedal",
+		tags = { "fast_kill_fish", "has_largefishing_medal" },
+	},
 	--巧手勋章(巧手组已完成)
 	handy_certificate = {
 		group = "handyMedal",
@@ -85,5 +78,22 @@ HelperRules_MEDAL_RULES = {
 		conditional_tags = {
 			no_portableengineer = { "basicengineer" },
 		},
+	},
+	--女武神勋章(未完成)
+	valkyrie_certificate = {
+		tags = { "valkyrie" },
+	},
+	--鱼人勋章(未完成)
+	merm_certificate = {
+		tags = { "merm_builder", --[[ "merm", "playermerm", "stronggrip", "mermfluent" ]] },
+	},
+	--浴火勋章(未完成)
+	bathingfire_certificate = {
+		tags = { "has_bathfire_medal", --[[ "pyromaniac", "bernieowner", "expertchef" ]] },
+	},
+	--蜘蛛勋章(未完成)
+	--注意：spiderwhisperer有作弊风险(解锁韦伯蜘蛛配方+蜘蛛不攻击)，待处理
+	spider_certificate = {
+		tags = { "spiderwhisperer" },
 	},
 }
