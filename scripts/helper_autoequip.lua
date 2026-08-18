@@ -381,7 +381,21 @@ local COND_FIELDS = {
 	season_fish = true, slingshot_ammo = true,
 }
 --cond可为单个条件表，也可为"按勋章分组"表({勋章prefab = 条件表,...})，后者每条指定装组内哪枚勋章(medal)
+--特殊动作：非ACTIONS动作，走独立监听(如致命伤)
+local SPECIAL_ACTIONS = { REINCARNATION = true }
+local SPECIAL_ACTION_ENTRIES = {}
+for kind in pairs(SPECIAL_ACTIONS) do SPECIAL_ACTION_ENTRIES[kind] = {} end
+
+--时空守护阈值：对齐能力勋章 SPEED_MEDAL.REINCARNATION_CONSUME(正常300/简易200)
+local REINCARNATION_CONSUME = (GLOBAL.MedalAPI and GLOBAL.MedalAPI.TUNING_MEDAL
+	and GLOBAL.MedalAPI.TUNING_MEDAL.SPEED_MEDAL
+	and GLOBAL.MedalAPI.TUNING_MEDAL.SPEED_MEDAL.REINCARNATION_CONSUME) or 300
+
 local function AddActionEntry(actionName, group, cond, medal)
+	if SPECIAL_ACTIONS[actionName] then
+		table.insert(SPECIAL_ACTION_ENTRIES[actionName], { group = group, cond = cond, medal = medal })
+		return
+	end
 	local action = ACTIONS[actionName]
 	if action == nil then
 		HelperDebug("自动装备: 未找到动作 %s(组%s)，跳过", tostring(actionName), group)
@@ -711,5 +725,44 @@ AddPlayerPostInit(function(inst)
 	end)
 end)
 
+--------------------------------时空守护(致命伤保命)--------------------------------
+--致命伤时自动装备本源+时空勋章，让能力勋章"轮回"触发保命(本源自动作容器装时空)。
+local function TryFatalDamageAutoEquip(inst)
+	if inst == nil or not inst:HasTag("player") or inst:HasTag("playerghost") then return end
+	local entries = SPECIAL_ACTION_ENTRIES["REINCARNATION"]
+	if entries == nil or GetOriginMedal(inst) == nil then return end--须有本源勋章作容器
+	for _, entry in ipairs(entries) do
+		local group = entry.group
+		local cfg = inst.medal_group_enabled
+		if cfg == nil or cfg[group] ~= false then--组开关开启
+			local best = FindBestGroupMedal(inst, group)
+			local prefab = best and ((best.prefab == "copy_blank_certificate" and best.medalname) or best.prefab) or nil
+			--仅本源加成勋章且耐久足够才保命
+			if prefab ~= nil and ORIGIN_BONUS_MAP[prefab] ~= nil
+				and best.components.finiteuses
+				and best.components.finiteuses:GetUses() >= REINCARNATION_CONSUME then
+				AutoEquipMedalForGroup(inst, group, { action = { id = "REINCARNATION" } })
+				HelperDebug("时空守护: 致命伤自动装备组%s(本源+%s)", group, prefab)
+			end
+		end
+	end
+end
+
+--hook玩家health.SetVal，致命伤时先自动装备(先于能力勋章轮回执行)
+AddComponentPostInit("health", function(self)
+	local inst = self.inst
+	if inst == nil or not inst:HasTag("player") or inst.helper_fataldamage_hooked then return end
+	inst.helper_fataldamage_hooked = true
+	local oldSetVal = self.SetVal
+	self.SetVal = function(self, val, cause, afflicter, ...)
+		local old_health, min_health = self.currenthealth, self.minhealth or 0
+		if val <= min_health and old_health > min_health then
+			TryFatalDamageAutoEquip(self.inst)
+		end
+		return oldSetVal and oldSetVal(self, val, cause, afflicter, ...) or nil
+	end
+end)
+
 --暴露到全局(供调试/手动调用)
 GLOBAL.AutoEquipMedalForGroup = AutoEquipMedalForGroup
+GLOBAL.TryFatalDamageAutoEquip = TryFatalDamageAutoEquip

@@ -4,6 +4,8 @@
 -- 结构：key=勋章组名(见helper_autoequip_rules.lua)
 --      value = {
 --        action_ids     = { "CHOP", ... },      -- [可选]无条件动作列表：执行即触发，可不填
+--          --特殊动作(非ACTIONS动作，命中走独立监听，见helper_autoequip.lua的SPECIAL_ACTIONS)：
+--          --  "REINCARNATION"                  -- 致命伤时空守护：玩家濒死时自动装备本源+该组本源加成勋章(需耐久≥REINCARNATION_CONSUME)，触发能力勋章轮回保命
 --        action_targets = {                     -- [可选]带条件动作：动作 → 目标条件，可不填
 --          --排除字段(命中任一即不触发，优先于所有"要求"字段)：
 --          动作 = { exclude_tags     = { "a" } },          -- 目标带"任一"指定标签则排除
@@ -29,6 +31,7 @@
 --   - 任一动作执行时，只会从该动作所属的勋章组里挑选最高级勋章装备，不会跨组误装
 --   - 同一动作要"按勋章分别限制"时，可用"按勋章分组"写法：动作 = { 勋章prefab = 条件表, ... }，
 --     命中对应子条件则装组内该枚勋章(如 PICK = { transplant_certificate = {tags={"thorny"}}, plant_certificate = {props={is_oversized=true}} })
+--   - 特殊动作(致命伤等)写进 action_ids 即可，无需在 action_targets 配置；该组勋章须在本源加成名单(helper_autoequip_rules.lua 的 ORIGIN_MEDAL_BONUS)才参与保命
 --==============================================================================
 HelperRules_AUTO_EQUIP_ACTIONS = {
 	--伐木勋章组
@@ -137,6 +140,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			"MEDAL_GRINDING",		--整组研磨(时空勋章+主厨勋章)
 			"MEDALFEEDBIRD",		--整组喂鸟(时空勋章+本源)
 			"MEDALDELIVERYTREASURE",--快速挖宝(时空勋章+本源)
+			"REINCARNATION",		--致命伤时空守护(本源+时空自动装备保命)
 		},
 		action_targets = {
 			BUILD = { recipe_builder_tag = { "spacetime_medal" } },	--制作时空专属配方(琥珀灵石/水晶球/改命药水/时空符文/时空尘蛾窝等)
