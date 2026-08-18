@@ -31,7 +31,8 @@ local function IsMedalProtectedNow(medal, player)
 	return env ~= nil and env(player)
 end
 
---玩家当前处于保护环境的受保护勋章prefab集合；返回 { [prefab]=true, ... }(可为空表)
+--玩家当前受保护的勋章prefab集合；返回 { [prefab]=true, ... }(可为空表)
+--包括：环境判定的保护勋章(PROTECT_ENV) + 玩家自定义强制保留勋章(medal_forced_keep，恒保护，由UI通过RPC同步)
 local function ComputeProtectedSet(player)
 	local set = {}
 	if player == nil then return set end
@@ -39,6 +40,9 @@ local function ComputeProtectedSet(player)
 		if env(player) then
 			set[prefab] = true
 		end
+	end
+	for _, prefab in ipairs(player.medal_forced_keep or {}) do
+		set[prefab] = true--强制保留恒受保护
 	end
 	return set
 end
