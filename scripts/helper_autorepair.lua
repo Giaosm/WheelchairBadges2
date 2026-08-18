@@ -1,11 +1,36 @@
---自动补充耐久：已装备勋章低于设定阈值时自动用背包材料补(能力勋章MedalAddUse)，仅服务端。
---阈值存 player.medal_autorepair={[prefab]=百分比}，0/nil=关，默认20%。材料从勋章 medal_repair_common 动态取。
+--自动补充耐久(服务端)：已装备勋章低于阈值时用背包材料补(MedalAddUse)。阈值存player.medal_autorepair={[prefab]=数值}，0=关。
+--普通勋章存百分比(默认20%)；正义勋章存目标索引(见下，默认智能)。
 local AUTOREPAIR_MEDALS = {
 	treadwater_certificate = true,--踏水
 	down_filled_coat_certificate = true,--羽绒
 	blue_crystal_certificate = true,--蓝晶
 	ommateum_certificate = true,--复眼
+	justice_certificate = true,--正义(补正义值)
 }
+--正义勋章补充目标：索引1起，value对齐能力勋章消耗(consume)；本源勋章减耗×0.4，凋零之蜂防控制固定5不看本源；"智能"按攻击目标动态算
+JUSTICE_TARGETS = {
+	{ name = "坎普斯",     prefab = "krampus",              value = 5  },
+	{ name = "复仇坎普斯", prefab = "medal_naughty_krampus", value = 5  },
+	{ name = "克劳斯",     prefab = "klaus",                value = 50 },
+	{ name = "蝙蝠",       prefab = "bat",                  value = 1  },
+	{ name = "闪电羊",     prefab = "lightninggoat",        value = 5  },
+	{ name = "触手",       prefab = "tentacle",             value = 5  },
+	{ name = "巨型触手",   prefab = "tentacle_pillar",      value = 5  },
+	{ name = "暗夜坎普斯", prefab = "medal_rage_krampus",   value = 50 },
+	{ name = "洞穴蠕虫",   prefab = "worm",                 value = 5  },
+	{ name = "巨大蠕虫",   prefab = "worm_boss",            value = 20 },
+	{ name = "蚁狮",       prefab = "antlion",              value = 50 },
+	{ name = "毒菌蟾蜍",   prefab = "toadstool",            value = 50 },
+	{ name = "悲惨蟾蜍",   prefab = "toadstool_dark",       value = 50 },
+	{ name = "凋零之蜂",   prefab = "medal_beequeen",       value = 5,  no_origin_discount = true },
+	{ name = "智能",       smart = true },
+}
+--prefab→所需正义值映射(智能模式用)，排除凋零之蜂/暗影生物(特殊处理)
+JUSTICE_PREFAB_VALUE = {}
+for _, t in ipairs(JUSTICE_TARGETS) do
+	if t.prefab and not t.smart then JUSTICE_PREFAB_VALUE[t.prefab] = t.value end
+end
+JUSTICE_SMART_INDEX = #JUSTICE_TARGETS--智能项索引
 
 --读取勋章耐久(当前,上限)，兼容armor/finiteuses/fueled
 local function GetMedalDurability(medal)
@@ -28,7 +53,7 @@ local function IsEquippedSafe(inst)
 	return eq ~= nil and eq:IsEquipped() == true
 end
 
---是否在用(直接佩戴或处于已装备的融合勋章内)。注意DST的inventoryitem无container字段，物品在容器里时owner指向容器物品。
+--是否在用(直接佩戴或在已装备融合勋章内；DST物品在容器时owner指向容器物品)
 local function IsMedalInUse(player, medal)
 	if medal == nil or player == nil then return false end
 	if IsEquippedSafe(medal) then
@@ -90,22 +115,59 @@ local function GetRepairMaterial(player, medal)
 	return nil, nil
 end
 
-local function TryAutoRepair(player, medal)
+--智能模式：按攻击目标算所需正义值(对齐能力勋章)。0=无需补充
+local function GetNeedJustice(player, target)
+	if target == nil or not target:IsValid() then return 0 end
+	local has_origin = GLOBAL.HasOriginMedal(player)
+	if target.prefab == "medal_beequeen" then return 5 end--凋零之蜂防控制，固定5不看本源
+	if target.gift_value ~= nil and target:HasTag("norewardtoiler") then--暗影生物gift_value*5
+		local need = target.gift_value * 5
+		if has_origin then need = math.ceil(need * 0.4) end
+		return need
+	end
+	local val = JUSTICE_PREFAB_VALUE[target.prefab]--justice_targetlist目标
+	if val ~= nil then
+		if has_origin then val = math.ceil(val * 0.4) end
+		return val
+	end
+	return 0--普通怪物击杀增加正义值，无需补充
+end
+
+--补充当前佩戴的勋章(target可选，智能模式用)
+local function TryAutoRepair(player, medal, target)
 	if medal == nil then return end
 	local current, total = GetMedalDurability(medal)
 	if current == nil or total == nil or total <= 0 then return end
 	local threshold = (player.medal_autorepair and player.medal_autorepair[medal.prefab])
-	if threshold == nil then threshold = 20 end--默认20%
-	if threshold <= 0 then return end--关闭
-	if current / total >= threshold / 100 then return end--未低于阈值
+	if medal.prefab == "justice_certificate" then
+		if threshold == nil then threshold = JUSTICE_SMART_INDEX end
+		if threshold <= 0 then return end
+		local need
+		if threshold == JUSTICE_SMART_INDEX then
+			need = GetNeedJustice(player, target)
+			if need <= 0 then return end
+		else
+			local t = JUSTICE_TARGETS[threshold]
+			if t == nil then return end
+			need = t.value
+			if not t.no_origin_discount and GLOBAL.HasOriginMedal(player) then
+				need = math.ceil(need * 0.4)
+			end
+		end
+		if current >= need then return end
+	else
+		if threshold == nil then threshold = 20 end
+		if threshold <= 0 then return end
+		if current / total >= threshold / 100 then return end
+	end
 	local material, adduse = GetRepairMaterial(player, medal)
 	if material ~= nil and adduse ~= nil and adduse > 0 then
-		if total - current < adduse then return end--缺口小于单材料补量则不补(不浪费)
-		GLOBAL.MedalAddUse(material, medal, adduse)--补充并消耗材料
+		if medal.prefab ~= "justice_certificate" and total - current < adduse then return end--普通勋章缺口<单材料补量则不补
+		GLOBAL.MedalAddUse(material, medal, adduse)
 	end
 end
 
---反查勋章所在玩家(DST原生GetGrandOwner沿owner链向上，含融合勋章场景)
+--反查勋章所在玩家(GetGrandOwner沿owner链向上，含融合勋章)
 local function GetOwnerPlayer(inst)
 	if inst == nil then return nil end
 	local ii = inst.components and inst.components.inventoryitem
@@ -115,27 +177,45 @@ local function GetOwnerPlayer(inst)
 	return nil
 end
 
---事件驱动：监听percentusedchange(耐久变化)即检查补充，带2秒冷却
+--普通勋章监听percentusedchange(耐久变化)；正义勋章在装备时挂到玩家身上监听onhitother(攻击目标后补正义值，卸下移除)
 for prefab in pairs(AUTOREPAIR_MEDALS) do
 	AddPrefabPostInit(prefab, function(inst)
 		if not GLOBAL.TheNet:GetIsServer() then return end
 		if inst._autorepair_hooked then return end
 		inst._autorepair_hooked = true
-		inst:ListenForEvent("percentusedchange", function(inst, data)
+		local function OnNeedRepair(src, data)
 			local player = GetOwnerPlayer(inst)
 			if player == nil or not player:IsValid() or player:HasTag("playerghost") then return end
 			if not IsMedalInUse(player, inst) then return end
-			local threshold = (player.medal_autorepair and player.medal_autorepair[inst.prefab])
-			if threshold == nil then threshold = 20 end--默认20%
-			if threshold <= 0 then return end--关闭
-			if data == nil or data.percent == nil then return end
-			if data.percent >= threshold / 100 then return end--未低于阈值
 			local now = GLOBAL.GetTime()
 			if player._autorepair_cooldown ~= nil and now < player._autorepair_cooldown then return end
 			player._autorepair_cooldown = now + 2--2秒冷却
-			TryAutoRepair(player, inst)
-		end)
+			local target = data and data.target
+			TryAutoRepair(player, inst, target)
+		end
+		if inst.prefab == "justice_certificate" then
+			--正义勋章：装备时挂玩家onhitother，卸下移除(onhitother时机在攻击命中后，能力勋章可能先判断不足致首次攻击漏掉落，之后补够即正常)
+			inst:ListenForEvent("equipped", function(inst, data)
+				local owner = data and data.owner
+				if owner ~= nil and owner:HasTag("player") and owner._autorepair_hit_hook == nil then
+					owner._autorepair_hit_hook = OnNeedRepair
+					owner:ListenForEvent("onhitother", owner._autorepair_hit_hook)
+				end
+			end)
+			inst:ListenForEvent("unequipped", function(inst, data)
+				local owner = data and data.owner
+				if owner ~= nil and owner._autorepair_hit_hook ~= nil then
+					owner:RemoveEventCallback("onhitother", owner._autorepair_hit_hook)
+					owner._autorepair_hit_hook = nil
+				end
+			end)
+		else
+			inst:ListenForEvent("percentusedchange", OnNeedRepair)
+		end
 	end)
 end
 
 GLOBAL.AUTOREPAIR_MEDALS = AUTOREPAIR_MEDALS
+GLOBAL.JUSTICE_TARGETS = JUSTICE_TARGETS
+GLOBAL.JUSTICE_PREFAB_VALUE = JUSTICE_PREFAB_VALUE
+GLOBAL.JUSTICE_SMART_INDEX = JUSTICE_SMART_INDEX

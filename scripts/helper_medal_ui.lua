@@ -113,7 +113,9 @@ local function GetAutoRepairConfig()
 end
 local function GetAutoRepairThreshold(prefab)
 	local cfg = stored_data.autorepair or {}
-	if cfg[prefab] == nil then return DEFAULT_AUTOREPAIR end--默认20%
+	if cfg[prefab] == nil then
+		return (prefab == "justice_certificate") and (GLOBAL.JUSTICE_SMART_INDEX or 0) or DEFAULT_AUTOREPAIR--正义勋章默认智能，其他默认20%
+	end
 	return cfg[prefab]
 end
 local function SaveAutoRepair(cfg)
@@ -204,17 +206,34 @@ local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 
 		local btn_off, btn_on
 		if g.autoRepair then
-			--自动补充勋章：阈值选择器(关/10%/20%/30%)，左降右升，默认20%
+			--自动补充勋章：普通勋章选百分比；正义勋章选目标(含智能)
+			local is_justice = (g.autoRepair == "justice_certificate")
+			local JCOUNT = GLOBAL.JUSTICE_TARGETS and #GLOBAL.JUSTICE_TARGETS or 0
 			local ar_cfg = GetAutoRepairConfig()
-			local function ThreshText(pct) return pct > 0 and (pct .. "%") or "关" end
+			local function ThreshText(val)
+				if is_justice then
+					local t = val and GLOBAL.JUSTICE_TARGETS[val]
+					return (t and t.name) or "关"
+				end
+				return val > 0 and (val .. "%") or "关"
+			end
 			local function StepAr(dir)
 				local cur = GetAutoRepairThreshold(g.autoRepair)
-				local idx = 0
-				for j, t in ipairs(AUTOREPAIR_THRESHOLDS) do if t == cur then idx = j break end end
-				idx = idx + dir
-				if idx < 0 then idx = #AUTOREPAIR_THRESHOLDS end
-				if idx > #AUTOREPAIR_THRESHOLDS then idx = 0 end
-				ar_cfg[g.autoRepair] = idx == 0 and 0 or AUTOREPAIR_THRESHOLDS[idx]
+				local idx
+				if is_justice then
+					idx = cur or 0
+					idx = idx + dir
+					if idx < 0 then idx = JCOUNT end
+					if idx > JCOUNT then idx = 0 end
+				else
+					idx = 0
+					for j, t in ipairs(AUTOREPAIR_THRESHOLDS) do if t == cur then idx = j break end end
+					idx = idx + dir
+					if idx < 0 then idx = #AUTOREPAIR_THRESHOLDS end
+					if idx > #AUTOREPAIR_THRESHOLDS then idx = 0 end
+					idx = idx == 0 and 0 or AUTOREPAIR_THRESHOLDS[idx]
+				end
+				ar_cfg[g.autoRepair] = idx
 				SaveAutoRepair(ar_cfg)
 				state:SetString(ThreshText(GetAutoRepairThreshold(g.autoRepair)))
 			end
@@ -257,9 +276,14 @@ end
 function MedalUIScreen:UpdateButtons(cfg)
 	for _, item in ipairs(self.buttons) do
 		if item.state.autoRepair then
-			--自动补充阈值项：显示阈值，箭头恒可用
+			--自动补充阈值项：正义勋章显示目标名，其他显示百分比
 			local pct = GetAutoRepairThreshold(item.state.autoRepair)
-			item.state:SetString(pct > 0 and (pct .. "%") or "关")
+			if item.state.autoRepair == "justice_certificate" then
+				local t = pct and GLOBAL.JUSTICE_TARGETS[pct]
+				item.state:SetString((t and t.name) or "关")
+			else
+				item.state:SetString(pct > 0 and (pct .. "%") or "关")
+			end
 			item.state:SetColour(0, 0, 0, 1)
 			item.btn_on:Enable()
 			item.btn_off:Enable()

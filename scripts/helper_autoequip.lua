@@ -1,7 +1,5 @@
---自动装备：执行指定动作时自动佩戴"该动作对应勋章组"的最优组合。
---组内选最优勋章→选最优融合勋章(本源>高>中>初，同分含目标者优先)→组合装备；无融合勋章则直装。
---本源加成：选中勋章在本源加成名单时强制用本源勋章当容器。带决策缓存避免重复计算。
---数据来自 helper_autoequip_rules/actions.lua；扫描复用 helper_globalfn.GetPlayerMedalItems。
+--自动装备：执行动作时佩戴"对应勋章组"最优组合。流程：组内多条件命中先组内对比(MEDAL_LEVELS高胜)→组内选最优勋章(指定prefab用FindSpecificMedal含低耐久，否则FindBestGroupMedal)→
+--选最优融合勋章(本源>高>中>初)→组合装备；无融合勋章直装；跨组冲突走CROSS_GROUP_PRIORITY(仅无融合时)。数据来自helper_autoequip_rules/actions.lua。
 local AUTO_EQUIP_RULES = HelperRules_AUTO_EQUIP
 local AUTO_EQUIP_ACTIONS = HelperRules_AUTO_EQUIP_ACTIONS
 local DECISION_CACHE_TIME = 0.3--缓存期内已戴最优组合则静默
@@ -27,6 +25,7 @@ local CROSS_GROUP_PRIORITY = AUTO_EQUIP_RULES.CROSS_GROUP_PRIORITY or {}--动作
 --保护勋章机制见 helper_protect.lua(配置在 AUTO_EQUIP_RULES.PROTECT_MEDALS)，接口：GLOBAL.ComputeProtectedSet 等
 local COPY_PENALTY = 0.5--复制勋章比同级真勋章差一档
 local ORIGIN_BONUS_BOOST = 0.1--本源加成提权
+local LOW_DURATION_PREFERRED = { arrest_certificate = true }--优先装备耐久低的勋章prefab(逮捕勋章：耐久低说明快升级)
 
 --------------------------------工具--------------------------------
 --获取勋章栏当前物品
@@ -91,7 +90,19 @@ local function FindAnyFusion(player)
 	return nil
 end
 
---找组内质量分最高的勋章。preferredFusion为优先容器：同分时优先选已在其内的勋章，避免反复换位
+--低耐久偏好勋章(LOW_DURATION_PREFERRED)同分时选耐久更低的(如逮捕：耐久低快升级)
+local function PreferLowerDuration(item, best)
+	if best == nil then return true end
+	if LOW_DURATION_PREFERRED[item.prefab] and LOW_DURATION_PREFERRED[best.prefab] then
+		local fi, fb = item.components.finiteuses, best.components.finiteuses
+		if fi ~= nil and fb ~= nil then
+			return fi:GetPercent() < fb:GetPercent()
+		end
+	end
+	return false
+end
+
+--找组内质量分最高的勋章。preferredFusion为优先容器：同分先选容器内避免反复换位；都不在容器内时低耐久偏好勋章优先
 local function FindBestGroupMedal(player, group, preferredFusion)
 	local best, bestScore, bestInPreferred = nil, nil, false
 	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
@@ -100,7 +111,8 @@ local function FindBestGroupMedal(player, group, preferredFusion)
 			local inPreferred = preferredFusion ~= nil and IsHeldBy(item, preferredFusion)
 			if best == nil
 				or score > bestScore
-				or (score == bestScore and inPreferred and not bestInPreferred) then
+				or (score == bestScore and inPreferred and not bestInPreferred)
+				or (score == bestScore and not inPreferred and not bestInPreferred and PreferLowerDuration(item, best)) then
 				best, bestScore, bestInPreferred = item, score, inPreferred
 			end
 		end
@@ -108,16 +120,29 @@ local function FindBestGroupMedal(player, group, preferredFusion)
 	return best, bestScore
 end
 
---找玩家拥有的组内指定prefab的勋章(真勋章或复制勋章)；无则nil。用于"按勋章分组"条件指定装某枚勋章(如PICK采巨型→虫木、采带刺→植物)
+--找组内指定prefab勋章(真/复制)。普通勋章优先已装备(避免同prefab多个来回切换)；低耐久偏好勋章选耐久最低的
 local function FindSpecificMedal(player, group, prefab)
 	if prefab == nil then return nil end
+	local current_equipped = GetEquippedMedal(player)
+	local low_dur_pref = LOW_DURATION_PREFERRED[prefab]
+	local fallback, fallback_low = nil, nil
 	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
 		local eff = (item.prefab == "copy_blank_certificate" and item.medalname) or item.prefab
 		if eff == prefab and MEDAL_GROUP[eff] == group then
-			return item
+			if low_dur_pref then
+				local pct = (item.components.finiteuses and item.components.finiteuses:GetPercent()) or 1
+				if fallback == nil or pct < fallback_low then
+					fallback, fallback_low = item, pct
+				end
+			else
+				if item == current_equipped then
+					return item--已装备的优先，避免来回切换
+				end
+				if fallback == nil then fallback = item end
+			end
 		end
 	end
-	return nil
+	return fallback
 end
 
 --找最优融合勋章：等级高者优先，同分含目标勋章者优先。本源加成时强制本源勋章当容器
@@ -674,10 +699,19 @@ AddPlayerPostInit(function(inst)
 			--否则(命中组的勋章都不在优先级表)回退到逐组装备
 		end
 
+		--逐组装备(一个动作可对应多组)；组内对比：同组多个"按勋章分组"条件命中时只留MEDAL_LEVELS最高的entry，避免逮捕/正义来回切换
+		local best_per_group = {}
 		for _, entry in ipairs(entries) do
 			if IsGroupEnabled(inst, entry.group) and MatchActionTarget(bufferedaction, entry.cond) then
-				AutoEquipMedalForGroup(inst, entry.group, bufferedaction, usedSlots, protectedSet, entry.medal)
+				local entry_rank = entry.medal and MEDAL_LEVELS[entry.medal] or nil
+				local cur = best_per_group[entry.group]
+				if cur == nil or (entry_rank ~= nil and (cur.rank == nil or entry_rank > cur.rank)) then
+					best_per_group[entry.group] = { entry = entry, rank = entry_rank }
+				end
 			end
+		end
+		for group, info in pairs(best_per_group) do
+			AutoEquipMedalForGroup(inst, group, bufferedaction, usedSlots, protectedSet, info.entry.medal)
 		end
 	end
 
