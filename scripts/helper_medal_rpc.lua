@@ -36,3 +36,23 @@ end)
 GLOBAL.SyncForcedKeep = function(list)
 	SendModRPCToServer(GetModRPC(RPC_NAMESPACE, "SyncForcedKeep"), GLOBAL.json.encode(list))
 end
+
+--服务端：接收客户端自动补充耐久阈值(json字符串表{prefab=百分比})，存到player.medal_autorepair
+AddModRPCHandler(RPC_NAMESPACE, "SyncAutoRepair", function(player, cfg_json)
+	if player == nil or player.components == nil or type(cfg_json) ~= "string" then return end
+	local ok, cfg = pcall(GLOBAL.json.decode, cfg_json)
+	if not ok or type(cfg) ~= "table" then return end
+	--仅保留有效阈值(0=关,10/20/30)
+	local result = {}
+	for prefab, pct in pairs(cfg) do
+		if type(prefab) == "string" and (pct == 0 or pct == 10 or pct == 20 or pct == 30) then
+			result[prefab] = pct
+		end
+	end
+	player.medal_autorepair = result
+end)
+
+--客户端：全量发送自动补充耐久阈值
+GLOBAL.SyncAutoRepair = function(cfg)
+	SendModRPCToServer(GetModRPC(RPC_NAMESPACE, "SyncAutoRepair"), GLOBAL.json.encode(cfg))
+end

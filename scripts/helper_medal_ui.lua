@@ -19,10 +19,15 @@ for _, g in ipairs(UI_GROUP_ORDER) do
 		or UI_EXTRA_NAMES[g] or g
 	table.insert(UI_GROUPS, { group = g, name = name })
 end
+--自动补充勋章直接排进网格(标记autoRepair=prefab，走阈值选择器而非开/关)
+for ar_prefab in pairs(GLOBAL.AUTOREPAIR_MEDALS or {}) do
+	local ar_name = GLOBAL.STRINGS.NAMES[string.upper(ar_prefab)] or ar_prefab
+	table.insert(UI_GROUPS, { group = "autoRepair", name = ar_name, autoRepair = ar_prefab })
+end
 
---跨局存储：TheSim持久化(客户端本地，参考能力勋章medal_globalfn.lua)，统一存{group_enabled, medal_key, forced_keep}
+--跨局存储：TheSim持久化(客户端本地，参考能力勋章medal_globalfn.lua)，统一存{group_enabled, medal_key, forced_keep, autorepair}
 local PERSIST_KEY = "helper_medal_ui_data"
-local stored_data = { group_enabled = {}, medal_key = nil, forced_keep = {} }
+local stored_data = { group_enabled = {}, medal_key = nil, forced_keep = {}, autorepair = {} }
 TheSim:GetPersistentString(PERSIST_KEY, function(success, str)
 	if success and str then
 		local ok, val = RunInSandbox(str)
@@ -30,6 +35,7 @@ TheSim:GetPersistentString(PERSIST_KEY, function(success, str)
 			stored_data = val
 			if type(stored_data.group_enabled) ~= "table" then stored_data.group_enabled = {} end
 			if type(stored_data.forced_keep) ~= "table" then stored_data.forced_keep = {} end
+			if type(stored_data.autorepair) ~= "table" then stored_data.autorepair = {} end
 		end
 	end
 end)
@@ -92,6 +98,23 @@ local function MakeArrowButton(self, parent, dir, x, y, group, value, cfg)
 		GLOBAL.SyncGroupEnabled(cfg)--同步到服务端
 	end)
 	return btn
+end
+
+--自动补充耐久阈值：{ [prefab]=百分比(10/20/30) }，0=关，nil=默认20%；选中即RPC同步服务端
+local AUTOREPAIR_THRESHOLDS = { 10, 20, 30 }
+local DEFAULT_AUTOREPAIR = 20
+local function GetAutoRepairConfig()
+	return stored_data.autorepair or {}
+end
+local function GetAutoRepairThreshold(prefab)
+	local cfg = stored_data.autorepair or {}
+	if cfg[prefab] == nil then return DEFAULT_AUTOREPAIR end--默认20%
+	return cfg[prefab]
+end
+local function SaveAutoRepair(cfg)
+	stored_data.autorepair = cfg
+	SavePersist()
+	GLOBAL.SyncAutoRepair(cfg)--同步服务端
 end
 
 local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
@@ -170,12 +193,44 @@ local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 		name:SetPosition(x - 75, y, 0)
 		name:SetColour(0, 0, 0, 1)
 
-		local btn_off = MakeArrowButton(self, self.root, "left", x - 40, y, g.group, false, cfg)
-		local btn_on = MakeArrowButton(self, self.root, "right", x + 10, y, g.group, true, cfg)
-
 		local state = self.root:AddChild(GLOBAL_Text(GLOBAL.NEWFONT, 20))
 		state:SetPosition(x - 15, y, 0)
 		state:SetHAlign(GLOBAL.ANCHOR_MIDDLE)
+
+		local btn_off, btn_on
+		if g.autoRepair then
+			--自动补充勋章：阈值选择器(关/10%/20%/30%)，左降右升，默认20%
+			local ar_cfg = GetAutoRepairConfig()
+			local function ThreshText(pct) return pct > 0 and (pct .. "%") or "关" end
+			local function StepAr(dir)
+				local cur = GetAutoRepairThreshold(g.autoRepair)
+				local idx = 0
+				for j, t in ipairs(AUTOREPAIR_THRESHOLDS) do if t == cur then idx = j break end end
+				idx = idx + dir
+				if idx < 0 then idx = #AUTOREPAIR_THRESHOLDS end
+				if idx > #AUTOREPAIR_THRESHOLDS then idx = 0 end
+				ar_cfg[g.autoRepair] = idx == 0 and 0 or AUTOREPAIR_THRESHOLDS[idx]
+				SaveAutoRepair(ar_cfg)
+				state:SetString(ThreshText(GetAutoRepairThreshold(g.autoRepair)))
+			end
+			local function MakeArArrow(dir, bx)
+				local normal, over = "arrow2_left.tex", "arrow2_left_over.tex"
+				if dir > 0 then normal, over = "arrow2_right.tex", "arrow2_right_over.tex" end
+				local b = self.root:AddChild(GLOBAL_ImageButton("images/global_redux.xml", normal, over))
+				b:SetPosition(bx, y, 0)
+				b:SetScale(0.18)
+				b:SetText("")
+				b:SetOnClick(function() StepAr(dir) end)
+				return b
+			end
+			btn_off = MakeArArrow(-1, x - 40)
+			btn_on = MakeArArrow(1, x + 10)
+			state.autoRepair = g.autoRepair--标记，供UpdateButtons读阈值
+			state:SetString(ThreshText(GetAutoRepairThreshold(g.autoRepair)))
+		else
+			btn_off = MakeArrowButton(self, self.root, "left", x - 40, y, g.group, false, cfg)
+			btn_on = MakeArrowButton(self, self.root, "right", x + 10, y, g.group, true, cfg)
+		end
 
 		self.buttons[idx] = { g = g, btn_off = btn_off, btn_on = btn_on, name = name, state = state }
 	end
@@ -196,16 +251,25 @@ end
 
 function MedalUIScreen:UpdateButtons(cfg)
 	for _, item in ipairs(self.buttons) do
-		local on = IsGroupOn(cfg, item.g.group)
-		item.state:SetString(on and "开" or "关")
-		item.state:SetColour(on and 0.3 or 1, on and 1 or 0.3, on and 0.3 or 0.3, 1)
-		--必须用Disable()/Enable()触发OnDisable切换禁用纹理，直接赋值enabled不刷新
-		if on then
-			item.btn_on:Disable()
+		if item.state.autoRepair then
+			--自动补充阈值项：显示阈值，箭头恒可用
+			local pct = GetAutoRepairThreshold(item.state.autoRepair)
+			item.state:SetString(pct > 0 and (pct .. "%") or "关")
+			item.state:SetColour(0, 0, 0, 1)
+			item.btn_on:Enable()
 			item.btn_off:Enable()
 		else
-			item.btn_off:Disable()
-			item.btn_on:Enable()
+			local on = IsGroupOn(cfg, item.g.group)
+			item.state:SetString(on and "开" or "关")
+			item.state:SetColour(on and 0.3 or 1, on and 1 or 0.3, on and 0.3 or 0.3, 1)
+			--必须用Disable()/Enable()触发OnDisable切换禁用纹理，直接赋值enabled不刷新
+			if on then
+				item.btn_on:Disable()
+				item.btn_off:Enable()
+			else
+				item.btn_off:Disable()
+				item.btn_on:Enable()
+			end
 		end
 	end
 end
@@ -587,6 +651,7 @@ AddPlayerPostInit(function(player)
 	player:ListenForEvent("playeractivated", function()
 		GLOBAL.SyncGroupEnabled(GetStoredConfig())
 		GLOBAL.SyncForcedKeep(GetForcedKeepList())
+		GLOBAL.SyncAutoRepair(GetAutoRepairConfig())
 	end)
 end)
 
