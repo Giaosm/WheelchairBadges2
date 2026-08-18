@@ -72,8 +72,9 @@ HelperRules_MEDAL_RULES = {
 		tags = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness", "senior_childishness" },
 		components = { "storyteller" },
 	},
-	--暗影勋章
+	--暗影勋章(暗影组已完成)
 	shadowmagic_certificate = {
+		group = "shadowmagicMedal",
 		tags = { "shadowmagic", "has_shadowmagic_medal" },
 		components = { "magician" },
 	},

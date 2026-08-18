@@ -37,7 +37,7 @@ HelperRules_AUTO_EQUIP = {
 		"space_time_certificate",	--时空勋章
 		-- "silence_certificate",	--沉默勋章
 		-- "bathingfire_certificate",--浴火勋章
-		-- "shadowmagic_certificate",--暗影勋章
+		"shadowmagic_certificate",	--暗影勋章
 		"childlike_certificate",	--童真勋章
 		-- "merm_certificate",		--鱼人勋章
 	},
@@ -156,6 +156,10 @@ HelperRules_AUTO_EQUIP = {
 		childMedal = {
 			"childlike_certificate",	--童真(最终)
 			"childishness_certificate",	--童心(前置)
+		},
+		--暗影勋章组(单枚，无grouptag，视为单勋章组)
+		shadowmagicMedal = {
+			"shadowmagic_certificate",	--暗影(最终)
 		},
 	},
 }

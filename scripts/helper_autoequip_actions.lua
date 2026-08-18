@@ -160,4 +160,17 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			BUILD = { recipe_builder_tag = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness", "senior_childishness" } },	--解锁配方
 		},
 	},
+	--暗影勋章组
+	shadowmagicMedal = {
+		name = "暗影勋章",
+		action_ids = {
+			"USESPELLBOOK",	--使用魔法书(无条件)
+			"CASTAOE",	--施放范围魔法(无条件)
+			"USEMAGICTOOL",	--使用魔法工具(无条件)
+		},
+		action_targets = {
+			EQUIP = { prefabs = { "sanityrock_mace" } },	--装备方尖锏
+			BUILD = { recipe_builder_tag = { "has_shadowmagic_medal" } },	--制作暗影魔法工具
+		},
+	},
 }
