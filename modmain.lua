@@ -17,6 +17,7 @@ modimport("scripts/helper_tags.lua")--标签同步
 modimport("scripts/helper_crafting_patch.lua")--制作栏重建优化(客户端,关闭时轻量/打开时补刷)
 modimport("scripts/helper_autoequip_rules.lua")--自动装备规则(勋章组等级)
 modimport("scripts/helper_autoequip_actions.lua")--自动装备动作配置
+modimport("scripts/helper_protect.lua")--勋章保护机制(特定环境下不可被移走)
 modimport("scripts/helper_autoequip.lua")--自动装备
 modimport("scripts/helper_medal_rpc.lua")--轮椅开关RPC(组开关同步服务端)
 modimport("scripts/helper_wisdom_autoexam.lua")--蒙昧勋章自动答题(服务端)

@@ -2,6 +2,7 @@
 --  FusionMedals      = { {prefab, level}, ... }   融合勋章等级(level越大越高级)
 --  ORIGIN_MEDAL_BONUS= { prefab, ... }            本源可加成勋章：自动装备时强制优先用本源勋章当容器
 --  Groups            = { 组名 = {prefab从高到低} } 勋章组(组名与能力勋章grouptag一致)
+--  PROTECT_MEDALS    = { prefab = {env=function(player)} } 保护勋章：env(player)返回true时该勋章不可被自动装备移走(逻辑见helper_protect.lua)
 --复制勋章(copy_blank_certificate)通过medalname识别印刻对象；自动装备时真勋章优先于同级复制勋章
 HelperRules_AUTO_EQUIP = {
 	--融合勋章等级
@@ -68,9 +69,38 @@ HelperRules_AUTO_EQUIP = {
 		},
 	},
 
-	--水上保护勋章：玩家在水面(不在船上)时，自动装备不得把这些勋章从可提供水上行走的位置移走，防止掉水淹死
-	WATER_SAFE_MEDALS = {
-		"treadwater_certificate",	--踏水勋章
+	--保护勋章：特定环境下不可被自动装备移走。env(player)返回true即进入保护。
+	PROTECT_MEDALS = {
+		--踏水勋章：水上保护(在水面且不在船上时需踏水，防止掉水淹死)
+		treadwater_certificate = { env = function(player)
+			if player == nil or player:HasTag("playerghost") then return false end
+			if player:GetCurrentPlatform() ~= nil then return false end--在船上安全
+			if player.components.drownable == nil then return false end
+			return player.components.drownable:IsOverWater()
+		end },
+		--复眼勋章：非月圆夜晚或风暴中保护(对齐能力勋章耐久消耗逻辑)
+		ommateum_certificate = { env = function(player)
+			if player == nil or player:HasTag("playerghost") then return false end
+			local world = GLOBAL.TheWorld
+			if world and world.state and world.state.isnight and not world.state.isfullmoon then
+				return true--非月圆夜晚
+			end
+			local sw = player.components.stormwatcher
+			local full_level = (GLOBAL.TUNING and GLOBAL.TUNING.SANDSTORM_FULL_LEVEL) or 0.7
+			return sw ~= nil and sw:GetCurrentStorm() > 0 and sw:GetStormLevel() > full_level
+		end },
+		--羽绒勋章：秋冬季节保护(防冻，不替换)
+		down_filled_coat_certificate = { env = function(player)
+			if player == nil or player:HasTag("playerghost") then return false end
+			local season = GLOBAL.TheWorld and GLOBAL.TheWorld.state and GLOBAL.TheWorld.state.season
+			return season == "autumn" or season == "winter"
+		end },
+		--蓝晶勋章：春夏季节保护(防过热，不替换)
+		blue_crystal_certificate = { env = function(player)
+			if player == nil or player:HasTag("playerghost") then return false end
+			local season = GLOBAL.TheWorld and GLOBAL.TheWorld.state and GLOBAL.TheWorld.state.season
+			return season == "spring" or season == "summer"
+		end },
 	},
 
 	--勋章组(组名与能力勋章勋章上的grouptag一致)

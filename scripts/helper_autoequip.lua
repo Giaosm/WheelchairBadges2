@@ -24,10 +24,7 @@ for _, prefab in ipairs(AUTO_EQUIP_RULES.ORIGIN_MEDAL_BONUS or {}) do
 	ORIGIN_BONUS_MAP[prefab] = true
 end
 local CROSS_GROUP_PRIORITY = AUTO_EQUIP_RULES.CROSS_GROUP_PRIORITY or {}--动作名→{勋章prefab→优先级}，跨组选最优用
-local WATER_SAFE_MEDALS = {}--水上保护勋章prefab集合(玩家在水面时不可被移走，防掉水)
-for _, prefab in ipairs(AUTO_EQUIP_RULES.WATER_SAFE_MEDALS or {}) do
-	WATER_SAFE_MEDALS[prefab] = true
-end
+--保护勋章机制见 helper_protect.lua(配置在 AUTO_EQUIP_RULES.PROTECT_MEDALS)，接口：GLOBAL.ComputeProtectedSet 等
 local COPY_PENALTY = 0.5--复制勋章比同级真勋章差一档
 local ORIGIN_BONUS_BOOST = 0.1--本源加成提权
 
@@ -82,31 +79,6 @@ local function HasAnyFusion(player)
 		end
 	end
 	return false
-end
-
---物品是否为水上保护勋章
-local function IsWaterSafeMedal(medal)
-	if medal == nil then return false end
-	local prefab = (medal.prefab == "copy_blank_certificate" and medal.medalname) or medal.prefab
-	return WATER_SAFE_MEDALS[prefab] ~= nil
-end
-
---玩家当前是否在水面且不在船上(此时依赖踏水勋章，自动装备需保护)
---判断依据与能力勋章一致：GetCurrentPlatform()==nil(不在船) 且 drownable:IsOverWater()(在水面)
-local function IsOverWaterNeedingTread(player)
-	if player == nil or player:HasTag("playerghost") then return false end
-	if player:GetCurrentPlatform() ~= nil then return false end--在船上安全，无需踏水
-	if player.components.drownable == nil then return false end
-	return player.components.drownable:IsOverWater()
-end
-
---在玩家勋章槽找水上保护勋章(直接佩戴的情况)；无则nil
-local function GetEquippedWaterSafeMedal(player)
-	local eq = GetEquippedMedal(player)
-	if eq ~= nil and IsWaterSafeMedal(eq) then
-		return eq
-	end
-	return nil
 end
 
 --找玩家拥有的任意一个融合勋章(含本源勋章)；无则nil
@@ -177,9 +149,16 @@ local function FindBestFusionMedal(player, bestMedal)
 	return best, bestLevel
 end
 
+--某勋章(含复制勋章)是否在受保护集合中；protectedSet为真实prefab→true的集合(见helper_protect.lua)
+local function IsInProtectedSet(item, protectedSet)
+	if item == nil or protectedSet == nil then return false end
+	local prefab = (item.prefab == "copy_blank_certificate" and item.medalname) or item.prefab
+	return protectedSet[prefab] ~= nil
+end
+
 --找融合勋章里放medal的格子：优先空格/最后一格/同组替换；满格且最后一格已被本次占用时，从后往前兜底替换一个可放的格子。
 --usedSlots[fusion]={slot=true}为本次自动装备已占用的格子，避免多枚勋章满格时竞争同一格。
-local function FindFusionSlot(fusion, medal, usedSlots, protectWaterSafe)
+local function FindFusionSlot(fusion, medal, usedSlots, protectedSet)
 	local container = fusion.components.container
 	local numSlots = container:GetNumSlots()
 	local used = usedSlots and usedSlots[fusion] or nil
@@ -187,8 +166,8 @@ local function FindFusionSlot(fusion, medal, usedSlots, protectWaterSafe)
 	for i = 1, numSlots do
 		if used == nil or not used[i] then
 			local cur = container:GetItemInSlot(i)
-			if cur ~= nil and protectWaterSafe and IsWaterSafeMedal(cur) then
-				--海面保护：不替换水上保护勋章(如踏水)
+			if IsInProtectedSet(cur, protectedSet) then
+				--保护中：不替换该受保护勋章
 			elseif container:itemtestfn(medal, i) then--能放
 				if i >= numSlots then return i end--最后一格
 				if cur == nil then return i end--空格
@@ -199,11 +178,11 @@ local function FindFusionSlot(fusion, medal, usedSlots, protectWaterSafe)
 			end
 		end
 	end
-	--满格兜底：从后往前找可放的格子(避开本次已占用和水上保护勋章)
+	--满格兜底：从后往前找可放的格子(避开本次已占用和受保护勋章)
 	for i = numSlots, 1, -1 do
 		if used == nil or not used[i] then
 			local cur = container:GetItemInSlot(i)
-			if not (protectWaterSafe and cur ~= nil and IsWaterSafeMedal(cur))
+			if not IsInProtectedSet(cur, protectedSet)
 				and container:itemtestfn(medal, i) then
 				return i
 			end
@@ -213,13 +192,13 @@ local function FindFusionSlot(fusion, medal, usedSlots, protectWaterSafe)
 end
 
 --把勋章放入融合勋章：已在内则不动；融合勋章内已有同组旧勋章则替换，旧勋章顶替新勋章原位置(保持布局)
---usedSlots为本次自动装备流程已占用格子表(满格装多枚避让用)，可为nil；protectWaterSafe海面保护时不替换踏水等水上保护勋章
-local function PutMedalIntoFusion(player, fusion, medal, usedSlots, protectWaterSafe)
+--usedSlots为本次自动装备流程已占用格子表(满格装多枚避让用)，可为nil；protectedSet保护中不替换受保护勋章(见helper_protect.lua)
+local function PutMedalIntoFusion(player, fusion, medal, usedSlots, protectedSet)
 	if medal == nil or fusion == nil or not fusion.components.container then return end
 	if IsHeldBy(medal, fusion) then return end--已在内
 
 	local container = fusion.components.container
-	local targetslot = FindFusionSlot(fusion, medal, usedSlots, protectWaterSafe)
+	local targetslot = FindFusionSlot(fusion, medal, usedSlots, protectedSet)
 	if targetslot == nil then return end
 	if usedSlots ~= nil then--登记本次已占用格子(按融合勋章区分)，供后续勋章避让
 		usedSlots[fusion] = usedSlots[fusion] or {}
@@ -268,8 +247,8 @@ local player_decision_caches = {}
 
 --------------------------------组合装备--------------------------------
 --自动装备指定组的最优组合(带决策缓存)。action用于取目标(prefab)作为缓存维度，可为nil
---usedSlots：本次自动装备流程已占用的融合勋章格子表(满格装多枚时避让用)，可为nil；protectWaterSafe海面保护时是否保留踏水
-local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectWaterSafe, medalPrefab)
+--usedSlots：本次自动装备流程已占用的融合勋章格子表(满格装多枚时避让用)，可为nil；protectedSet保护中不替换受保护勋章(见helper_protect.lua)
+local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectedSet, medalPrefab)
 	if player == nil or not player:HasTag("player") then return end
 	local inv = player.components.inventory
 	if inv == nil then return end
@@ -327,7 +306,7 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectW
 			return
 		end
 		--把最优目标勋章放入最优融合勋章，再装备融合勋章
-		PutMedalIntoFusion(player, bestFusion, bestMedal, usedSlots, protectWaterSafe)
+		PutMedalIntoFusion(player, bestFusion, bestMedal, usedSlots, protectedSet)
 		if current_equipped ~= bestFusion then
 			inv:Equip(bestFusion)
 			HelperDebug("自动装备组合[%s]: 融合%s + %s%s", group, bestFusion.prefab, bestMedal.prefab,
@@ -638,20 +617,20 @@ AddPlayerPostInit(function(inst)
 		--本次自动装备流程已占用的融合勋章格子(按融合勋章区分)，供满格装多枚时避让
 		local usedSlots = {}
 
-		--海面踏水保护：玩家在水面(不在船上)时，自动装备不能把踏水勋章从可提供水上行走的位置移走，防止掉水
-		local protectWaterSafe = IsOverWaterNeedingTread(inst)
-		if protectWaterSafe then
-			local equippedSafe = GetEquippedWaterSafeMedal(inst)--勋章槽直接戴的踏水
-			if equippedSafe ~= nil then
-				local fusion = FindAnyFusion(inst)--找一个可收纳踏水的融合勋章
+		--保护机制：特定环境(如踏水在水面)下勋章不可被移走，防掉水/失去能力(见helper_protect.lua)
+		local protectedSet = GLOBAL.ComputeProtectedSet(inst)
+		if next(protectedSet) ~= nil then
+			local protectedEquipped = GLOBAL.GetEquippedProtectedMedal(inst, protectedSet)--勋章槽直接戴的受保护勋章
+			if protectedEquipped ~= nil then
+				local fusion = FindAnyFusion(inst)--找一个可收纳受保护勋章的融合勋章
 				if fusion == nil then
-					--踏水直接戴在勋章槽，且无融合勋章可收纳 → 不换装，保住踏水(避免掉水)
+					--受保护勋章直接戴在勋章槽，且无融合勋章可收纳 → 不换装，保住它
 					return
 				end
-				--有融合勋章：把踏水移入融合勋章(同帧连续)，再走正常自动装备
-				PutMedalIntoFusion(inst, fusion, equippedSafe, usedSlots, protectWaterSafe)
+				--有融合勋章：把受保护勋章移入融合勋章(同帧连续)，再走正常自动装备
+				PutMedalIntoFusion(inst, fusion, protectedEquipped, usedSlots, protectedSet)
 			end
-			--若踏水已在融合勋章内(equippedSafe==nil)：正常自动装备，FindFusionSlot会跳过踏水格子
+			--若受保护勋章已在融合勋章内(protectedEquipped==nil)：正常自动装备，FindFusionSlot会跳过受保护格子
 		end
 
 		--跨组优先级：该动作配置了优先级表 且 玩家无融合勋章 → 只装备优先级最高的组
@@ -680,7 +659,7 @@ AddPlayerPostInit(function(inst)
 			end
 			--命中的组里有勋章在优先级表内 → 只装备优先级最高的组
 			if bestEntry ~= nil then
-				AutoEquipMedalForGroup(inst, bestEntry.group, bufferedaction, usedSlots, protectWaterSafe, bestEntry.medal)
+				AutoEquipMedalForGroup(inst, bestEntry.group, bufferedaction, usedSlots, protectedSet, bestEntry.medal)
 				return
 			end
 			--否则(命中组的勋章都不在优先级表)回退到逐组装备
@@ -688,10 +667,10 @@ AddPlayerPostInit(function(inst)
 
 		for _, entry in ipairs(entries) do
 			if IsGroupEnabled(inst, entry.group) and MatchActionTarget(bufferedaction, entry.cond) then
-				AutoEquipMedalForGroup(inst, entry.group, bufferedaction, usedSlots, protectWaterSafe, entry.medal)
+				AutoEquipMedalForGroup(inst, entry.group, bufferedaction, usedSlots, protectedSet, entry.medal)
 			end
 		end
-		end
+	end
 
 	--1. 监听动作入队事件
 	inst:ListenForEvent("actionqueued", function(src, data)
