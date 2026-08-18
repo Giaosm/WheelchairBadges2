@@ -14,7 +14,6 @@ HelperRules_MEDAL_RULES = {
 		tags = { "masterchef", "professionalchef", "expertchef", "seasoningchef" },
 	},
 	--智慧勋章(智慧组已完成)
-	--reader走组件：原版读书判定ACTIONS.READ需components.reader(组件构造自动带reader标签)，仅标签无法真正执行读书
 	wisdom_certificate = {
 		group = "wisdomMedal",
 		tags = { "bookbuilder", "wisdombuilder" },
@@ -61,21 +60,19 @@ HelperRules_MEDAL_RULES = {
 	bathingfire_certificate = {
 		tags = { "has_bathfire_medal", --[[ "pyromaniac", "bernieowner", "expertchef" ]] },
 	},
-	--童心勋章(童真组)
-	--storyteller走组件：原版讲故事判定需components.storyteller(组件构造自动带storyteller标签)
+	--童心勋章(童真组已完成)
 	childishness_certificate = {
 		group = "childMedal",
 		tags = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness" },
 		components = { "storyteller" },
 	},
-	--童真勋章(童真组)
+	--童真勋章(童真组已完成)
 	childlike_certificate = {
 		group = "childMedal",
 		tags = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness", "senior_childishness" },
 		components = { "storyteller" },
 	},
 	--暗影勋章
-	--magician走组件：原版魔法工具判定需components.magician(组件构造自动带magician标签)
 	shadowmagic_certificate = {
 		tags = { "shadowmagic", "has_shadowmagic_medal" },
 		components = { "magician" },

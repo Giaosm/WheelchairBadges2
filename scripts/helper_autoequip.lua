@@ -502,18 +502,24 @@ AddPlayerPostInit(function(inst)
 			if not found then return false end
 		end
 
-		--slingshot_ammo：[必要条件]玩家手持弹弓(HANDS槽)当前装填弹药(weapon.projectile=ammo.."_proj")是任一指定prefab才触发。未命中return false，与目标判断为"与"关系
+		--slingshot_ammo：[必要条件]玩家手持弹弓(HANDS槽)当前装填弹药。每项可为弹药prefab(匹配weapon.projectile=prefab.."_proj")或"tag:xxx"(匹配弹弓弹药槽1弹药物品的tag)。未命中return false
 		if cond.slingshot_ammo and #cond.slingshot_ammo > 0 then
 			local doer = bufferedaction.doer
 			local slingshot = doer and doer.components.inventory and doer.components.inventory:GetEquippedItem(GLOBAL.EQUIPSLOTS.HANDS)
-			local proj_prefab = slingshot and slingshot.components and slingshot.components.weapon and slingshot.components.weapon.projectile
 			local match = false
-			if proj_prefab ~= nil then
+			if slingshot ~= nil then
+				local proj_prefab = slingshot.components and slingshot.components.weapon and slingshot.components.weapon.projectile
+				local ammo_item = slingshot.components and slingshot.components.container and slingshot.components.container:GetItemInSlot(slingshot.overrideammoslot or 1)
 				for _, ap in ipairs(cond.slingshot_ammo) do
-					if proj_prefab == (ap .. "_proj") then match = true break end
+					local tag_name = string.match(ap, "^tag:(.+)$")
+					if tag_name ~= nil then
+						if ammo_item ~= nil and ammo_item:HasTag(tag_name) then match = true break end
+					elseif proj_prefab ~= nil and proj_prefab == (ap .. "_proj") then
+						match = true break
+					end
 				end
 			end
-			HelperDebug("slingshot弹药判断: 弹弓=%s 弹药投射物=%s 命中=%s", slingshot and slingshot.prefab or "nil", tostring(proj_prefab), tostring(match))
+			HelperDebug("slingshot弹药判断: 弹弓=%s 命中=%s", slingshot and slingshot.prefab or "nil", tostring(match))
 			if not match then return false end
 		end
 

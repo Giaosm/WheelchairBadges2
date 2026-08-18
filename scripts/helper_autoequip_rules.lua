@@ -67,6 +67,11 @@ HelperRules_AUTO_EQUIP = {
 			["wisdom_certificate"]     = 20,	--智慧勋章(阅读能力)
 			["space_time_certificate"] = 10,	--时空勋章(变更季节)
 		},
+		ATTACK = {
+			["childlike_certificate"]     = 30,	--童真(弹弓射击)
+			["childishness_certificate"]  = 30,	--童心(弹弓射击)
+			["space_time_certificate"]    = 20,	--时空(沙刺弹时空之刃)
+		},
 	},
 
 	--保护勋章：特定环境下不可被自动装备移走。env(player)返回true即进入保护。

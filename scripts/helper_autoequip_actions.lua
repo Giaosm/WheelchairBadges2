@@ -148,11 +148,16 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			ATTACK = { slingshot_ammo = { "medalslingshotammo_sandspike" } },	--弹弓装沙刺弹攻击(佩戴时空勋章无视地形生成时空之刃)
 		},
 	},
-	--童真勋章组(占位，动作待补)
+	--童真勋章组
 	childMedal = {
 		name = "童真勋章",
+		action_ids = {
+			"TELLSTORY",	--讲故事(无条件)
+		},
 		action_targets = {
-			--TODO: 弹弓射击/组装等动作
+			EQUIP = { tags = { "slingshot" } },	--装备弹弓(含皮肤/变体版)
+			ATTACK = { slingshot_ammo = { "tag:slingshotammo" } },	--弹弓射击弹药
+			BUILD = { recipe_builder_tag = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness", "senior_childishness" } },	--解锁配方
 		},
 	},
 }
