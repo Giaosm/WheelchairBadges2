@@ -10,14 +10,14 @@ local GLOBAL_ImageButton = GLOBAL.require("widgets/imagebutton")
 local GLOBAL_TEMPLATES = GLOBAL.require("widgets/redux/templates")
 
 --勋章组列表(自动装备组，取helper_autoequip_actions.lua的name；特殊开关如autoexam自动答题走额外名字映射)
-local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "speedMedal", "childMedal", "autoexam" }
+local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "speedMedal", "childMedal", "autoexam", "tributeAnswer" }
 --非自动装备组的开关中文名
-local UI_EXTRA_NAMES = { autoexam = "自动答题" }
+local UI_EXTRA_NAMES = { autoexam = "自动答题", tributeAnswer = "奉纳透视" }
 local UI_GROUPS = {}
 for _, g in ipairs(UI_GROUP_ORDER) do
 	local name = (HelperRules_AUTO_EQUIP_ACTIONS[g] and HelperRules_AUTO_EQUIP_ACTIONS[g].name)
 		or UI_EXTRA_NAMES[g] or g
-	table.insert(UI_GROUPS, { group = g, name = name })
+	table.insert(UI_GROUPS, { group = g, name = name, defaultOff = (g == "tributeAnswer") })
 end
 --自动补充勋章直接排进网格(标记autoRepair=prefab，走阈值选择器而非开/关)
 for ar_prefab in pairs(GLOBAL.AUTOREPAIR_MEDALS or {}) do
@@ -77,6 +77,11 @@ end
 
 local function IsGroupOn(cfg, group)
 	return cfg[group] ~= false
+end
+--开关状态：defaultOff项(如奉纳盒答案)默认关，需显式true才开
+local function IsUISwitchOn(cfg, g)
+	if g.defaultOff then return cfg[g.group] == true end
+	return cfg[g.group] ~= false
 end
 
 --创建开/关箭头按钮，点击把组开关设为value
@@ -259,7 +264,7 @@ function MedalUIScreen:UpdateButtons(cfg)
 			item.btn_on:Enable()
 			item.btn_off:Enable()
 		else
-			local on = IsGroupOn(cfg, item.g.group)
+			local on = IsUISwitchOn(cfg, item.g)
 			item.state:SetString(on and "开" or "关")
 			item.state:SetColour(on and 0.3 or 1, on and 1 or 0.3, on and 0.3 or 0.3, 1)
 			--必须用Disable()/Enable()触发OnDisable切换禁用纹理，直接赋值enabled不刷新
@@ -660,4 +665,9 @@ GLOBAL.c_medalkey = function()
 	SaveMedalKeyOverride(false)
 	GLOBAL.ReRegisterMedalKey()
 	print("[轮椅开关] 快捷键已重置为关闭，请在暂停菜单中使用\"轮椅开关\"按钮重新设置")
+end
+
+--供helper_tribute_answer读取：奉纳盒答案开关(默认关)
+GLOBAL.IsTributeAnswerEnabled = function()
+	return GetStoredConfig().tributeAnswer == true
 end

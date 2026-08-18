@@ -23,3 +23,4 @@ modimport("scripts/helper_medal_rpc.lua")--轮椅开关RPC(组开关同步服务
 modimport("scripts/helper_autorepair.lua")--自动补充耐久(服务端)
 modimport("scripts/helper_wisdom_autoexam.lua")--蒙昧勋章自动答题(服务端)
 modimport("scripts/helper_medal_ui.lua")--轮椅开关UI(客户端)
+modimport("scripts/helper_tribute_answer.lua")--奉纳盒显示答案(依赖UI开关)
