@@ -34,7 +34,6 @@ configuration_options =
 	{
 		name = "debug_switch",
 		label = "调试日志",
-		hover = "是否打印本Mod的调试信息，关闭时零开销",
 		options =
 		{
 			{description = "关闭", data = false, hover = "关闭调试信息(推荐)"},

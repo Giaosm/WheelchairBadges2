@@ -46,6 +46,7 @@ end
 
 local function GetStoredConfig() return stored_data.group_enabled or {} end
 local function SaveConfig(cfg) stored_data.group_enabled = cfg; SavePersist() end
+GLOBAL.GetStoredConfig = GetStoredConfig--供客户端攻击拦截等读取开关状态
 
 --正义武神模式(justice=正义/valkyrie=武神，默认武神)：影响跨组优先级ATTACK里考验/检验的优先级
 local function GetJVMode()

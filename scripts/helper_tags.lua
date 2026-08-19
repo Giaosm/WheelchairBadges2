@@ -75,7 +75,9 @@ local function RefreshPlayerMedalTags(player)
 			equip_changed = true
 		end
 		if owned and not equipped then
-			for _, tag in ipairs(rule.tags or {}) do tag_should[tag] = true end
+			for _, tag in ipairs(rule.tags or {}) do
+				if not tag:find("^medal_block_") then tag_should[tag] = true end--拦截标签只在佩戴时加，未佩戴不加
+			end
 			for cond, condtags in pairs(rule.conditional_tags or {}) do
 				local check = TAG_CONDITIONS[cond]
 				if check and check(player) then
@@ -94,6 +96,15 @@ local function RefreshPlayerMedalTags(player)
 			GLOBAL.AddMedalTag(player, tag)
 			player.helper_medal_tags[tag] = true
 			HelperDebug("赋予临时标签: %s", tag)
+			changed = true
+		end
+	end
+	--攻击拦截佩戴标签：佩戴中(equipped)的检验/考验勋章也加 medal_block_* 标签(能力勋章不管自定义标签，加标签安全)，供客户端攻击拦截HasTag读取
+	for tag in pairs(tag_equipped) do
+		if tag:find("^medal_block_") and not player:HasTag(tag) then
+			GLOBAL.AddMedalTag(player, tag)
+			player.helper_medal_tags[tag] = true
+			HelperDebug("赋予佩戴拦截标签: %s", tag)
 			changed = true
 		end
 	end

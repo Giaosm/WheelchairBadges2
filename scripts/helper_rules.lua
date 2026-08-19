@@ -89,6 +89,14 @@ HelperRules_MEDAL_RULES = {
 		group = "valkyrieMedal",
 		tags = { "valkyrie" },
 	},
+	--检验勋章：佩戴标签供客户端攻击拦截识别(只对升级中勋章拦截)。不配group，避免受女武神组开关控制导致拦截失效
+	valkyrie_examine_certificate = {
+		tags = { "medal_block_examine" },
+	},
+	--考验勋章：佩戴标签供客户端攻击拦截识别。不配group，独立于女武神组开关
+	valkyrie_test_certificate = {
+		tags = { "medal_block_test" },
+	},
 	--鱼人勋章(未完成，暂不配置)
 	-- merm_certificate = {
 	-- 	tags = { "merm_builder", --[[ "merm", "playermerm", "stronggrip", "mermfluent" ]] },
