@@ -295,9 +295,12 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protecte
 		end
 	end
 	if bestMedal == nil then
+		--条件指定勋章(medalPrefab)时：指定勋章找不到就放弃，不回退到组内其它勋章
+		--(避免考验/女武神条件命中却装了在该目标上无效的检验，造成无意义换装)
+		if medalPrefab ~= nil then return end
 		bestMedal, bestScore = FindBestGroupMedal(player, group)
+		if bestMedal == nil then return end--该组无可装备勋章
 	end
-	if bestMedal == nil then return end--该组无可装备勋章
 
 	--缓存命中：动作+目标相同且未过期，且本组最优勋章已真正装备(直接佩戴或在当前融合勋章内)则静默
 	--(不能用"当前戴的==缓存里的勋章"判断，否则多组命中同一动作时会误拦截后续组塞入融合勋章)
@@ -473,6 +476,13 @@ AddPlayerPostInit(function(inst)
 	--      tags(任一标签)/all_tags(全部标签)/prefabs(任一预制件)
 	local function MatchActionTarget(bufferedaction, cond)
 		if cond == nil then return true end
+		--支持条件数组：任一子条件满足即触发("或"关系)，如检验勋章 (largecreature+monster)或epic；子条件可为单表或嵌套数组(递归)
+		if type(cond) == "table" and cond[1] ~= nil then
+			for _, subcond in ipairs(cond) do
+				if MatchActionTarget(bufferedaction, subcond) then return true end
+			end
+			return false
+		end
 		local target = bufferedaction.target or bufferedaction.invobject
 
 		--排除字段(命中任一即不触发)。仅在有目标时判断
@@ -673,20 +683,27 @@ AddPlayerPostInit(function(inst)
 		if cross_priority ~= nil and not HasAnyFusion(inst) then
 			local bestEntry, bestPriority = nil, nil
 			for _, entry in ipairs(entries) do
+				local eligible = true
 				if IsGroupEnabled(inst, entry.group) and MatchActionTarget(bufferedaction, entry.cond) then
 					--指定勋章(entry.medal)优先用其查优先级；否则用组内最优勋章查
 					local bestMedal = nil
 					if entry.medal ~= nil then
 						bestMedal = FindSpecificMedal(inst, entry.group, entry.medal)
+						--指定勋章未持有时跳过该entry(不参与跨组优先级)，不回退组内最优(避免装错/装不上)
+						if bestMedal == nil then
+							eligible = false
+						end
 					end
-					if bestMedal == nil then
-						bestMedal = FindBestGroupMedal(inst, entry.group)
-					end
-					if bestMedal ~= nil then
-						local prefab = (bestMedal.prefab == "copy_blank_certificate" and bestMedal.medalname) or bestMedal.prefab
-						local prio = cross_priority[prefab]
-						if prio ~= nil and (bestPriority == nil or prio > bestPriority) then
-							bestPriority, bestEntry = prio, entry
+					if eligible then
+						if bestMedal == nil then
+							bestMedal = FindBestGroupMedal(inst, entry.group)
+						end
+						if bestMedal ~= nil then
+							local prefab = (bestMedal.prefab == "copy_blank_certificate" and bestMedal.medalname) or bestMedal.prefab
+							local prio = cross_priority[prefab]
+							if prio ~= nil and (bestPriority == nil or prio > bestPriority) then
+								bestPriority, bestEntry = prio, entry
+							end
 						end
 					end
 				end
@@ -699,14 +716,18 @@ AddPlayerPostInit(function(inst)
 			--否则(命中组的勋章都不在优先级表)回退到逐组装备
 		end
 
-		--逐组装备(一个动作可对应多组)；组内对比：同组多个"按勋章分组"条件命中时只留MEDAL_LEVELS最高的entry，避免逮捕/正义来回切换
+		--逐组装备(一个动作可对应多组)；组内对比：同组多个"按勋章分组"条件命中时只留MEDAL_LEVELS最高的entry，避免逮捕/正义来回切换。
+		--选优前先剔除玩家未持有的指定勋章：仅"持有"的命中勋章参与择优，实现"两个都有用靠前的、只有一个用有的、都没有不装备"，无需回退
 		local best_per_group = {}
 		for _, entry in ipairs(entries) do
 			if IsGroupEnabled(inst, entry.group) and MatchActionTarget(bufferedaction, entry.cond) then
-				local entry_rank = entry.medal and MEDAL_LEVELS[entry.medal] or nil
-				local cur = best_per_group[entry.group]
-				if cur == nil or (entry_rank ~= nil and (cur.rank == nil or entry_rank > cur.rank)) then
-					best_per_group[entry.group] = { entry = entry, rank = entry_rank }
+				--条件指定勋章(entry.medal)且玩家未持有时跳过(不参与选优)；无条件/单条件表(entry.medal==nil)照常参与
+				if not (entry.medal ~= nil and FindSpecificMedal(inst, entry.group, entry.medal) == nil) then
+					local entry_rank = entry.medal and MEDAL_LEVELS[entry.medal] or nil
+					local cur = best_per_group[entry.group]
+					if cur == nil or (entry_rank ~= nil and (cur.rank == nil or entry_rank > cur.rank)) then
+						best_per_group[entry.group] = { entry = entry, rank = entry_rank }
+					end
 				end
 			end
 		end

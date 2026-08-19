@@ -17,6 +17,8 @@
 --          动作 = { prefabs        = { "prefab" } },         -- 目标为指定预制件才满足
 --          动作 = { has_component  = { "stewer" } },         -- 目标带"任一"指定组件才满足(如锅的stewer)
 --          动作 = { props          = { is_oversized = true } }, -- 目标须满足指定属性(如农场作物植株的is_oversized)，值true=须有且为真，false=须无/为假
+--          --条件数组("或"关系)：条件可用数组包裹多个子条件表，任一子条件满足即触发。子条件可再嵌套数组
+--          动作 = { { all_tags = { "largecreature", "monster" } }, { tags = { "epic" } } },  -- 大型怪物(largecreature+monster) 或 epic 均触发
 --          动作 = { hand_tags      = { "deployedfarmplant" } }, -- 手持物品(invobject)带"任一"指定标签即整体通过(与目标条件为"或"关系，常用于DEPLOY种下种子)
 --          动作 = { season_fish    = { prefab="season" } },      -- [必要条件]玩家周围献祭范围(BOOK_SACRIFICE_RADIUS)有指定季节鱼(地上实体)且当前季节≠对应季节才可触发(换季献祭需勋章)，未命中则return false(与目标prefabs判断为"与"关系)
 --          动作 = { slingshot_ammo = { "ammo" } },               -- [必要条件]手持弹弓当前装的弹药是"任一"指定prefab才触发(如沙刺弹medalslingshotammo_sandspike)；支持"tag:xxx"前缀匹配弹药物品标签
@@ -219,14 +221,23 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			},
 		},
 	},
-	--女武神勋章组(检验→考验→女武神升级链，ATTACK三等级单独配置待精修)
+	--女武神勋章组
 	valkyrieMedal = {
 		name = "女武神勋章",
 		action_targets = {
+			BUILD = { valkyrie_certificate = { recipe_builder_tag = { "valkyrie" } } },	--制作女武神专属配方(女武神之矛spear_wathgrithr/头盔wathgrithrhat，builder_tag=valkyrie)装最终女武神勋章(提供valkyrie标签)
 			ATTACK = {
-				valkyrie_examine_certificate = {},	--检验(攻击大型怪物，消耗耐久升级)
-				valkyrie_test_certificate = {},	--考验(攻击怪物，消耗耐久升级)
-				valkyrie_certificate = {},	--女武神(攻击有效目标，回血/减伤)
+				valkyrie_examine_certificate = {
+					{ all_tags = { "largecreature", "monster" } },	--大型怪物(须同时带largecreature+monster)
+					{ tags = { "epic" } },	--或epic生物
+				},	--检验(攻击大型怪物/epic，消耗耐久升级)
+				valkyrie_test_certificate = {
+					tags = { "monster", "epic" },	--epic或monster
+					exclude_tags = { "smallcreature" },	--排除小动物
+				},	--考验(攻击epic或monster且非小动物，消耗耐久升级)
+				valkyrie_certificate = {
+					exclude_tags = { "veggie", "structure", "wall", "balloon", "groundspike", "smashable", "abigail", "shadowminion", "companion" },	--排除植物/建筑/墙/气球/尖刺/可砸碎/阿比盖尔/暗影随从/随从(对应IsValidVictim后9项；prey项不排除以免误排敌意猎物)
+				},	--女武神(攻击有效目标，回血/减伤)
 			},
 		},
 	},
