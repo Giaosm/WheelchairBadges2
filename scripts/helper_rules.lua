@@ -84,7 +84,7 @@ HelperRules_MEDAL_RULES = {
 		group = "bathfireMedal",
 		tags = { "has_bathfire_medal", "pyromaniac", "expertchef", --[[ "bernieowner" ]] },
 	},
-	--女武神勋章(女武神组)
+	--女武神勋章(女武神组已完成)
 	valkyrie_certificate = {
 		group = "valkyrieMedal",
 		tags = { "valkyrie" },

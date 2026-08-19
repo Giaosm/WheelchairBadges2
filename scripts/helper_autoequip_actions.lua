@@ -223,7 +223,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 	},
 	--女武神勋章组
 	valkyrieMedal = {
-		name = "女武神勋章",
+		name = "女武神◆",
 		action_targets = {
 			BUILD = { valkyrie_certificate = { recipe_builder_tag = { "valkyrie" } } },	--制作女武神专属配方(女武神之矛spear_wathgrithr/头盔wathgrithrhat，builder_tag=valkyrie)装最终女武神勋章(提供valkyrie标签)
 			ATTACK = {

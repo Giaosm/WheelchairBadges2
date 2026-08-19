@@ -1,6 +1,6 @@
 --自动装备规则配置(纯数据)。新增勋章组只改这里。
 --  FusionMedals      = { {prefab, level}, ... }   融合勋章等级(level越大越高级)
---  ORIGIN_MEDAL_BONUS= { prefab, ... }            本源可加成勋章：自动装备时强制优先用本源勋章当容器
+--  ORIGIN_MEDAL_BONUS= { prefab, ... }            本源可加成勋章：本源勋章为最高级融合勋章(level4)，有它时自然被选中当容器(无需强制)
 --  Groups            = { 组名 = {prefab从高到低} } 勋章组(组名与能力勋章grouptag一致)
 --  PROTECT_MEDALS    = { prefab = {env=function(player)} } 保护勋章：env(player)返回true时该勋章不可被自动装备移走(逻辑见helper_protect.lua)
 --复制勋章(copy_blank_certificate)通过medalname识别印刻对象；自动装备时真勋章优先于同级复制勋章
@@ -71,13 +71,11 @@ HelperRules_AUTO_EQUIP = {
 			["childlike_certificate"]     = 50,	--童真(弹弓射击)
 			["childishness_certificate"]  = 50,	--童心(弹弓射击)
 			["space_time_certificate"]    = 40,	--时空(沙刺弹时空之刃)
-			--["valkyrie_test_certificate"] = 30,	--考验
-			--["valkyrie_examine_certificate"] = 30,	--检验
+			["valkyrie_test_certificate"] = 30,	--考验(默认武神模式=30；UI选"正义"时动态降为10)
+			["valkyrie_examine_certificate"] = 30,	--检验(默认武神模式=30；UI选"正义"时动态降为10)
 			["arrest_certificate"]        = 20,	--逮捕
 			["justice_certificate"]       = 20,	--正义
 			["valkyrie_certificate"]      = 10,	--女武神(攻击)
-			--["valkyrie_test_certificate"] = 10,	--考验
-			--["valkyrie_examine_certificate"] = 10,	--检验
 		},
 		MURDER = {
 			["headchef_certificate"]      = 20,	--主厨(快速杀一切)

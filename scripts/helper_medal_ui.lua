@@ -10,14 +10,14 @@ local GLOBAL_ImageButton = GLOBAL.require("widgets/imagebutton")
 local GLOBAL_TEMPLATES = GLOBAL.require("widgets/redux/templates")
 
 --勋章组列表(自动装备组，取helper_autoequip_actions.lua的name；特殊开关如autoexam自动答题走额外名字映射)
-local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "speedMedal", "childMedal", "shadowmagicMedal", "naughtyMedal", "fishingMedal", "bathfireMedal", "justiceMedal", "valkyrieMedal", "autoexam", "tributeAnswer" }
+local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "speedMedal", "childMedal", "shadowmagicMedal", "naughtyMedal", "fishingMedal", "bathfireMedal", "justiceMedal", "jvMode", "valkyrieMedal", "attackBlock", "autoexam", "tributeAnswer" }
 --非自动装备组的开关中文名
-local UI_EXTRA_NAMES = { autoexam = "自动答题", tributeAnswer = "奉纳透视" }
+local UI_EXTRA_NAMES = { autoexam = "自动答题", tributeAnswer = "奉纳透视", jvMode = "正义武神", attackBlock = "攻击拦截" }
 local UI_GROUPS = {}
 for _, g in ipairs(UI_GROUP_ORDER) do
 	local name = (HelperRules_AUTO_EQUIP_ACTIONS[g] and HelperRules_AUTO_EQUIP_ACTIONS[g].name)
 		or UI_EXTRA_NAMES[g] or g
-	table.insert(UI_GROUPS, { group = g, name = name, defaultOff = (g == "tributeAnswer") })
+	table.insert(UI_GROUPS, { group = g, name = name, defaultOff = (g == "tributeAnswer" or g == "attackBlock"), jvMode = (g == "jvMode") })
 end
 --自动补充勋章直接排进网格(标记autoRepair=prefab，走阈值选择器而非开/关)
 for ar_prefab in pairs(GLOBAL.AUTOREPAIR_MEDALS or {}) do
@@ -25,9 +25,9 @@ for ar_prefab in pairs(GLOBAL.AUTOREPAIR_MEDALS or {}) do
 	table.insert(UI_GROUPS, { group = "autoRepair", name = ar_name, autoRepair = ar_prefab })
 end
 
---跨局存储：TheSim持久化(客户端本地，参考能力勋章medal_globalfn.lua)，统一存{group_enabled, medal_key, forced_keep, autorepair}
+--跨局存储：TheSim持久化(客户端本地，参考能力勋章medal_globalfn.lua)，统一存{group_enabled, medal_key, forced_keep, autorepair, jv_mode}
 local PERSIST_KEY = "helper_medal_ui_data"
-local stored_data = { group_enabled = {}, medal_key = nil, forced_keep = {}, autorepair = {} }
+local stored_data = { group_enabled = {}, medal_key = nil, forced_keep = {}, autorepair = {}, jv_mode = "valkyrie" }
 TheSim:GetPersistentString(PERSIST_KEY, function(success, str)
 	if success and str then
 		local ok, val = RunInSandbox(str)
@@ -36,6 +36,7 @@ TheSim:GetPersistentString(PERSIST_KEY, function(success, str)
 			if type(stored_data.group_enabled) ~= "table" then stored_data.group_enabled = {} end
 			if type(stored_data.forced_keep) ~= "table" then stored_data.forced_keep = {} end
 			if type(stored_data.autorepair) ~= "table" then stored_data.autorepair = {} end
+			if stored_data.jv_mode ~= "justice" and stored_data.jv_mode ~= "valkyrie" then stored_data.jv_mode = "valkyrie" end
 		end
 	end
 end)
@@ -45,6 +46,17 @@ end
 
 local function GetStoredConfig() return stored_data.group_enabled or {} end
 local function SaveConfig(cfg) stored_data.group_enabled = cfg; SavePersist() end
+
+--正义武神模式(justice=正义/valkyrie=武神，默认武神)：影响跨组优先级ATTACK里考验/检验的优先级
+local function GetJVMode()
+	if stored_data.jv_mode == "justice" then return "justice" end
+	return "valkyrie"
+end
+local function SaveJVMode(mode)
+	stored_data.jv_mode = (mode == "justice") and "justice" or "valkyrie"
+	SavePersist()
+	GLOBAL.SyncJVMode(stored_data.jv_mode)--同步服务端
+end
 
 --快捷键选项("global"跟随全局/false关闭/数字为具体键)
 local MEDAL_KEY_OPTIONS = {
@@ -75,9 +87,6 @@ local function GetMedalKeyOverride()
 	return stored_data.medal_key
 end
 
-local function IsGroupOn(cfg, group)
-	return cfg[group] ~= false
-end
 --开关状态：defaultOff项(如奉纳盒答案)默认关，需显式true才开
 local function IsUISwitchOn(cfg, g)
 	if g.defaultOff then return cfg[g.group] == true end
@@ -103,6 +112,22 @@ local function MakeArrowButton(self, parent, dir, x, y, group, value, cfg)
 		GLOBAL.SyncGroupEnabled(cfg)--同步到服务端
 	end)
 	return btn
+end
+
+--通用左右箭头按钮(左/右切换)，点击执行onClick(dir)。正义武神/自动补充等二值或多值选择器共用。禁用纹理与开/关箭头一致
+local function MakeSpinnerArrow(self, parent, dir, x, y, onClick)
+	local normal, over, disabled
+	if dir > 0 then
+		normal, over, disabled = "arrow2_right.tex", "arrow2_right_over.tex", "arrow_right_disabled.tex"
+	else
+		normal, over, disabled = "arrow2_left.tex", "arrow2_left_over.tex", "arrow_left_disabled.tex"
+	end
+	local b = parent:AddChild(GLOBAL_ImageButton("images/global_redux.xml", normal, over, disabled))
+	b:SetPosition(x, y, 0)
+	b:SetScale(0.18)
+	b:SetText("")
+	b:SetOnClick(function() onClick(dir) end)
+	return b
 end
 
 --自动补充耐久阈值：{ [prefab]=百分比(10/20/30) }，0=关，nil=默认20%；选中即RPC同步服务端
@@ -205,7 +230,17 @@ local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 		state:SetHAlign(GLOBAL.ANCHOR_MIDDLE)
 
 		local btn_off, btn_on
-		if g.autoRepair then
+		if g.jvMode then
+			--正义武神模式：左右箭头切换(左=正义，右=武神)
+			local function StepJv(dir)
+				SaveJVMode(dir < 0 and "justice" or "valkyrie")
+				self:UpdateButtons(cfg)--刷新state显示
+			end
+			btn_off = MakeSpinnerArrow(self, self.root, -1, x - 40, y, StepJv)
+			btn_on = MakeSpinnerArrow(self, self.root, 1, x + 10, y, StepJv)
+			state.jvMode = true--标记，供UpdateButtons刷新
+			state:SetString(GetJVMode() == "justice" and "正义" or "武神")
+		elseif g.autoRepair then
 			--自动补充勋章：普通勋章选百分比；正义勋章选目标(含智能)
 			local is_justice = (g.autoRepair == "justice_certificate")
 			local JCOUNT = GLOBAL.JUSTICE_TARGETS and #GLOBAL.JUSTICE_TARGETS or 0
@@ -233,22 +268,12 @@ local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 					if idx > #AUTOREPAIR_THRESHOLDS then idx = 0 end
 					idx = idx == 0 and 0 or AUTOREPAIR_THRESHOLDS[idx]
 				end
-				ar_cfg[g.autoRepair] = idx
+					ar_cfg[g.autoRepair] = idx
 				SaveAutoRepair(ar_cfg)
 				state:SetString(ThreshText(GetAutoRepairThreshold(g.autoRepair)))
 			end
-			local function MakeArArrow(dir, bx)
-				local normal, over = "arrow2_left.tex", "arrow2_left_over.tex"
-				if dir > 0 then normal, over = "arrow2_right.tex", "arrow2_right_over.tex" end
-				local b = self.root:AddChild(GLOBAL_ImageButton("images/global_redux.xml", normal, over))
-				b:SetPosition(bx, y, 0)
-				b:SetScale(0.18)
-				b:SetText("")
-				b:SetOnClick(function() StepAr(dir) end)
-				return b
-			end
-			btn_off = MakeArArrow(-1, x - 40)
-			btn_on = MakeArArrow(1, x + 10)
+			btn_off = MakeSpinnerArrow(self, self.root, -1, x - 40, y, StepAr)
+			btn_on = MakeSpinnerArrow(self, self.root, 1, x + 10, y, StepAr)
 			state.autoRepair = g.autoRepair--标记，供UpdateButtons读阈值
 			state:SetString(ThreshText(GetAutoRepairThreshold(g.autoRepair)))
 		else
@@ -275,7 +300,19 @@ end
 
 function MedalUIScreen:UpdateButtons(cfg)
 	for _, item in ipairs(self.buttons) do
-		if item.state.autoRepair then
+		if item.state.jvMode then
+			--正义武神模式：显示当前(正义/武神)；指向当前值的箭头禁用(左=正义，右=武神)
+			local isJ = GetJVMode() == "justice"
+			item.state:SetString(isJ and "正义" or "武神")
+			item.state:SetColour(0, 0, 0, 1)
+			if isJ then
+				item.btn_off:Disable()--已是正义，禁左箭头
+				item.btn_on:Enable()
+			else
+				item.btn_off:Enable()
+				item.btn_on:Disable()--已是武神，禁右箭头
+			end
+		elseif item.state.autoRepair then
 			--自动补充阈值项：正义勋章显示目标名，其他显示百分比
 			local pct = GetAutoRepairThreshold(item.state.autoRepair)
 			if item.state.autoRepair == "justice_certificate" then
@@ -681,6 +718,7 @@ AddPlayerPostInit(function(player)
 		GLOBAL.SyncGroupEnabled(GetStoredConfig())
 		GLOBAL.SyncForcedKeep(GetForcedKeepList())
 		GLOBAL.SyncAutoRepair(GetAutoRepairConfig())
+		GLOBAL.SyncJVMode(GetJVMode())
 	end)
 end)
 
