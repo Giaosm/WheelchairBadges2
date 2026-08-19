@@ -24,7 +24,7 @@ HelperRules_AUTO_EQUIP = {
 		"wisdom_certificate",		--智慧勋章
 		"transplant_certificate",	--植物勋章
 		"justice_certificate",	--正义勋章
-		-- "valkyrie_certificate",	--女武神勋章
+		"valkyrie_certificate",	--女武神勋章
 		"naughty_certificate",	--淘气勋章
 		-- "down_filled_coat_certificate",--羽绒服勋章
 		-- "blue_crystal_certificate",--蓝晶勋章
@@ -68,9 +68,16 @@ HelperRules_AUTO_EQUIP = {
 			["space_time_certificate"] = 10,	--时空勋章(变更季节)
 		},
 		ATTACK = {
-			["childlike_certificate"]     = 30,	--童真(弹弓射击)
-			["childishness_certificate"]  = 30,	--童心(弹弓射击)
-			["space_time_certificate"]    = 20,	--时空(沙刺弹时空之刃)
+			["childlike_certificate"]     = 50,	--童真(弹弓射击)
+			["childishness_certificate"]  = 50,	--童心(弹弓射击)
+			["space_time_certificate"]    = 40,	--时空(沙刺弹时空之刃)
+			--["valkyrie_test_certificate"] = 30,	--考验
+			--["valkyrie_examine_certificate"] = 30,	--检验
+			["arrest_certificate"]        = 20,	--逮捕
+			["justice_certificate"]       = 20,	--正义
+			["valkyrie_certificate"]      = 10,	--女武神(攻击)
+			--["valkyrie_test_certificate"] = 10,	--考验
+			--["valkyrie_examine_certificate"] = 10,	--检验
 		},
 		MURDER = {
 			["headchef_certificate"]      = 20,	--主厨(快速杀一切)
@@ -195,6 +202,12 @@ HelperRules_AUTO_EQUIP = {
 		justiceMedal = {
 			"arrest_certificate",	--逮捕(前置)
 			"justice_certificate",	--正义(最终)
+		},
+		--女武神勋章组(女武神→考验→检验，最终优先)
+		valkyrieMedal = {
+			"valkyrie_certificate",	--女武神(最终)
+			"valkyrie_test_certificate",	--考验(中)
+			"valkyrie_examine_certificate",	--检验(前置)
 		},
 	},
 }

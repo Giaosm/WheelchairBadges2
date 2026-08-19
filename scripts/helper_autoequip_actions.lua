@@ -219,4 +219,15 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			},
 		},
 	},
+	--女武神勋章组(检验→考验→女武神升级链，ATTACK三等级单独配置待精修)
+	valkyrieMedal = {
+		name = "女武神勋章",
+		action_targets = {
+			ATTACK = {
+				valkyrie_examine_certificate = {},	--检验(攻击大型怪物，消耗耐久升级)
+				valkyrie_test_certificate = {},	--考验(攻击怪物，消耗耐久升级)
+				valkyrie_certificate = {},	--女武神(攻击有效目标，回血/减伤)
+			},
+		},
+	},
 }
