@@ -140,12 +140,12 @@ AddPlayerPostInit(function(inst)
 		--第三层(跨组对比)：配置了跨组优先级的动作，收集进入决赛的组(在优先级表内)，按优先级降序逐个装备(能装几个装几个)
 		local cross_priority = U.CROSS_GROUP_PRIORITY[bufferedaction.action.id]
 		if cross_priority ~= nil then
-			--正义武神模式：UI选"正义"时考验/检验降为10
+			--正义武神模式：UI选"正义"时考验/检验降为20
 			if inst.medal_jv_mode == "justice" then
 				local cp = {}
 				for k, v in pairs(cross_priority) do cp[k] = v end
-				cp["valkyrie_test_certificate"] = 10
-				cp["valkyrie_examine_certificate"] = 10
+				cp["valkyrie_test_certificate"] = 20
+				cp["valkyrie_examine_certificate"] = 20
 				cross_priority = cp
 			end
 			--收集决赛选手(在跨组优先级表内的组)并按优先级降序

@@ -89,6 +89,11 @@ HelperRules_MEDAL_RULES = {
 		group = "valkyrieMedal",
 		tags = { "valkyrie" },
 	},
+	--触手勋章(触手组已完成)
+	tentacle_certificate = {
+		group = "tentacleMedal",
+		tags = { "tentaclemedal" },
+	},
 	--检验勋章：佩戴标签供客户端攻击拦截识别(只对升级中勋章拦截)。不配group，避免受女武神组开关控制导致拦截失效
 	valkyrie_examine_certificate = {
 		tags = { "medal_block_examine" },

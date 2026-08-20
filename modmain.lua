@@ -2,7 +2,6 @@
 GLOBAL.setmetatable(env,{__index=function(t,k) return GLOBAL.rawget(GLOBAL,k) end})
 
 if not (GLOBAL.MedalAPI or TUNING.FUNCTIONAL_MEDAL_IS_OPEN) then
-	print("[坐着轮椅玩勋章] 警告: 未检测到「能力勋章」Mod，本Mod功能已停用。请先启用能力勋章。")
 	return
 end
 

@@ -241,4 +241,16 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			},
 		},
 	},
+	--触手勋章组(单枚最终勋章，提供tentaclemedal标签；能力均为主动：制作狼牙棒/活性触手尖刺+活性触手尖刺融合+攻击召唤触手)
+	tentacleMedal = {
+		name = "触手勋章",
+		action_ids = {
+			"MEDALSPIKEFUSE",	--活性触手尖刺融合(tentaclemedal标签)
+			"ATTACK",	--攻击时自动装备触手勋章(召唤触手)，对齐能力勋章原版无目标限制
+		},
+		action_targets = {
+			BUILD = { recipe_builder_tag = { "tentaclemedal" } },	--制作触手专属配方(狼牙棒tentaclespike/活性触手尖刺medal_tentaclespike)
+			EQUIP = { prefabs = { "medal_tentaclespike" } },	--装备活性触手尖刺时自动装备触手勋章(享受按勋章等级加成的攻击范围)
+		},
+	},
 }

@@ -30,7 +30,7 @@ HelperRules_AUTO_EQUIP = {
 		-- "blue_crystal_certificate",--蓝晶勋章
 		-- "ommateum_certificate",	--复眼勋章
 		-- "treadwater_certificate",--踏水勋章
-		-- "tentacle_certificate",	--触手勋章
+		"tentacle_certificate",	--触手勋章
 		-- "large_devour_soul_certificate",--高级噬魂勋章
 		-- "bee_king_certificate",	--蜂王勋章
 		"largefishing_certificate",	--渔翁勋章(高级)
@@ -68,14 +68,15 @@ HelperRules_AUTO_EQUIP = {
 			["space_time_certificate"] = 10,	--时空勋章(变更季节)
 		},
 		ATTACK = {
-			["childlike_certificate"]     = 50,	--童真(弹弓射击)
-			["childishness_certificate"]  = 50,	--童心(弹弓射击)
-			["space_time_certificate"]    = 40,	--时空(沙刺弹时空之刃)
-			["valkyrie_test_certificate"] = 30,	--考验(默认武神模式=30；UI选"正义"时动态降为10)
-			["valkyrie_examine_certificate"] = 30,	--检验(默认武神模式=30；UI选"正义"时动态降为10)
-			["arrest_certificate"]        = 20,	--逮捕
-			["justice_certificate"]       = 20,	--正义
-			["valkyrie_certificate"]      = 10,	--女武神(攻击)
+			["childlike_certificate"]     = 60,	--童真(弹弓射击)
+			["childishness_certificate"]  = 60,	--童心(弹弓射击)
+			["space_time_certificate"]    = 50,	--时空(沙刺弹时空之刃)
+			["valkyrie_test_certificate"] = 40,	--考验(默认武神模式=40；UI选"正义"时动态降为20)
+			["valkyrie_examine_certificate"] = 40,	--检验(默认武神模式=40；UI选"正义"时动态降为20)
+			["arrest_certificate"]        = 30,	--逮捕
+			["justice_certificate"]       = 30,	--正义
+			["valkyrie_certificate"]      = 20,	--女武神(攻击)
+			["tentacle_certificate"]      = 10,	--触手(攻击召唤触手，最低优先)
 		},
 		MURDER = {
 			["headchef_certificate"]      = 20,	--主厨(快速杀一切)
@@ -149,7 +150,7 @@ HelperRules_AUTO_EQUIP = {
 			"chef_certificate",			--大厨
 			"cook_certificate",			--烹饪
 		},
-		--巧手勋章组(无显式grouptag，考验→巧手为完整升级链)
+		--巧手勋章组
 		handyMedal = {
 			"handy_certificate",		--巧手(最终)
 			"handy_test_certificate",	--巧手考验(前置)
@@ -201,11 +202,15 @@ HelperRules_AUTO_EQUIP = {
 			"arrest_certificate",	--逮捕(前置)
 			"justice_certificate",	--正义(最终)
 		},
-		--女武神勋章组(女武神→考验→检验，最终优先)
+		--女武神勋章组
 		valkyrieMedal = {
 			"valkyrie_certificate",	--女武神(最终)
 			"valkyrie_test_certificate",	--考验(中)
 			"valkyrie_examine_certificate",	--检验(前置)
+		},
+		--触手勋章组
+		tentacleMedal = {
+			"tentacle_certificate",	--触手(最终)
 		},
 	},
 }
