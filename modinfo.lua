@@ -2,7 +2,7 @@ name = "坐着轮椅玩勋章2"
 description = [[勋章不用手换、答题不用打转，轮椅一推就到位，懒人必备！]]
 author = "哇唧唧哇"
 
-version = "0.0.1"--整体.大章节.小章节.优化、修Bug
+version = "0.0.2"--整体.大章节.小章节.优化、修Bug
 
 api_version = 10
 
@@ -30,18 +30,7 @@ end
 
 configuration_options =
 {
-	Subtitle("调试"),
-	{
-		name = "debug_switch",
-		label = "调试日志",
-		options =
-		{
-			{description = "关闭", data = false, hover = "关闭调试信息(推荐)"},
-			{description = "开启", data = true, hover = "开启调试信息"},
-		},
-		default = false,
-	},
-	Subtitle("轮椅开关UI"),
+	Subtitle("基础"),
 	{
 		name = "medal_ui_key",
 		label = "轮椅开关快捷键",
@@ -70,6 +59,17 @@ configuration_options =
 			{description = "F10", data = 291, hover = "按F10键开关UI"},	--KEY_F10
 			{description = "F11", data = 292, hover = "按F11键开关UI"},	--KEY_F11
 			{description = "F12", data = 293, hover = "按F12键开关UI"},	--KEY_F12
+		},
+		default = false,
+	},
+	Subtitle("调试"),
+	{
+		name = "debug_switch",
+		label = "调试日志",
+		options =
+		{
+			{description = "关闭", data = false},
+			{description = "开启", data = true},
 		},
 		default = false,
 	},
