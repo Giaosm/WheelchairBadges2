@@ -10,7 +10,7 @@ local GLOBAL_ImageButton = GLOBAL.require("widgets/imagebutton")
 local GLOBAL_TEMPLATES = GLOBAL.require("widgets/redux/templates")
 
 --勋章组列表(自动装备组，取helper_autoequip_actions.lua的name；特殊开关如autoexam自动答题走额外名字映射)
-local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "speedMedal", "childMedal", "shadowmagicMedal", "naughtyMedal", "fishingMedal", "bathfireMedal", "tentacleMedal", "justiceMedal", "jvMode", "valkyrieMedal", "attackBlock", "autoexam", "tributeAnswer" }
+local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "speedMedal", "childMedal", "shadowmagicMedal", "naughtyMedal", "fishingMedal", "bathfireMedal", "tentacleMedal", "inheritMedal", "justiceMedal", "jvMode", "valkyrieMedal", "attackBlock", "autoexam", "tributeAnswer" }
 --非自动装备组的开关中文名
 local UI_EXTRA_NAMES = { autoexam = "自动答题", tributeAnswer = "奉纳透视", jvMode = "正义武神", attackBlock = "攻击拦截" }
 local UI_GROUPS = {}

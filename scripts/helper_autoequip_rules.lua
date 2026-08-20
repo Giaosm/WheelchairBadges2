@@ -212,5 +212,9 @@ HelperRules_AUTO_EQUIP = {
 		tentacleMedal = {
 			"tentacle_certificate",	--触手(最终)
 		},
+		--传承勋章组
+		inheritMedal = {
+			"inherit_certificate",	--传承(最终)
+		},
 	},
 }

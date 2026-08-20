@@ -70,7 +70,7 @@ local function RefreshPlayerMedalTags(player)
 			for _, com in ipairs(rule.components or {}) do com_equipped[com] = true end
 		end
 		--带效果且佩戴状态变化→强制刷新(首次不强制)
-		local has_crafting_effect = (rule.tags and #rule.tags > 0) or (rule.components and #rule.components > 0)
+		local has_crafting_effect = (rule.tags and #rule.tags > 0) or (rule.components and #rule.components > 0) or (rule.level_tag_base ~= nil)
 		if has_crafting_effect and prev_equip[prefab] ~= nil and prev_equip[prefab] ~= equipped then
 			equip_changed = true
 		end
@@ -85,6 +85,16 @@ local function RefreshPlayerMedalTags(player)
 				end
 			end
 			for _, com in ipairs(rule.components or {}) do com_should[com] = true end
+			--按等级动态赋标签(如传承勋章level_tag_base="traditionalbearer")：取持有勋章最高等级，赋 base1..最高level
+			if rule.level_tag_base ~= nil then
+				local max_level = 0
+				for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
+					if IsMedalItem(item, prefab) and item.medal_level then
+						max_level = math.max(max_level, item.medal_level)
+					end
+				end
+				for i = 1, max_level do tag_should[rule.level_tag_base .. i] = true end
+			end
 		end
 	end
 

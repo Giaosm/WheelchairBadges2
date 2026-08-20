@@ -241,7 +241,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			},
 		},
 	},
-	--触手勋章组(单枚最终勋章，提供tentaclemedal标签；能力均为主动：制作狼牙棒/活性触手尖刺+活性触手尖刺融合+攻击召唤触手)
+	--触手勋章组
 	tentacleMedal = {
 		name = "触手勋章",
 		action_ids = {
@@ -251,6 +251,13 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		action_targets = {
 			BUILD = { recipe_builder_tag = { "tentaclemedal" } },	--制作触手专属配方(狼牙棒tentaclespike/活性触手尖刺medal_tentaclespike)
 			EQUIP = { prefabs = { "medal_tentaclespike" } },	--装备活性触手尖刺时自动装备触手勋章(享受按勋章等级加成的攻击范围)
+		},
+	},
+	--传承勋章组
+	inheritMedal = {
+		name = "传承勋章",
+		action_targets = {
+			BUILD = { recipe_builder_tag = { "traditionalbearer1", "traditionalbearer2", "traditionalbearer3" } },	--制作传承勋章解锁的配方(羽绒帽/蓝晶帽/复眼/速度/空间/未解之谜/本源精华等)
 		},
 	},
 }

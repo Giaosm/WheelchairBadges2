@@ -94,6 +94,11 @@ HelperRules_MEDAL_RULES = {
 		group = "tentacleMedal",
 		tags = { "tentaclemedal" },
 	},
+	--传承勋章(传承组已完成)：level_tag_base按勋章等级动态赋标签(有几级赋几级，对齐原版onequipfn)
+	inherit_certificate = {
+		group = "inheritMedal",
+		level_tag_base = "traditionalbearer",
+	},
 	--检验勋章：佩戴标签供客户端攻击拦截识别(只对升级中勋章拦截)。不配group，避免受女武神组开关控制导致拦截失效
 	valkyrie_examine_certificate = {
 		tags = { "medal_block_examine" },
