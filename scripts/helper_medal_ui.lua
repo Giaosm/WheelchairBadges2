@@ -17,7 +17,7 @@ local UI_GROUPS = {}
 for _, g in ipairs(UI_GROUP_ORDER) do
 	local name = (HelperRules_AUTO_EQUIP_ACTIONS[g] and HelperRules_AUTO_EQUIP_ACTIONS[g].name)
 		or UI_EXTRA_NAMES[g] or g
-	table.insert(UI_GROUPS, { group = g, name = name, defaultOff = (g == "tributeAnswer" or g == "attackBlock"), jvMode = (g == "jvMode") })
+	table.insert(UI_GROUPS, { group = g, name = name, defaultOff = (g == "tributeAnswer" or g == "attackBlock"), jvMode = (g == "jvMode"), attackBlock = (g == "attackBlock") })
 end
 --自动补充勋章直接排进网格(标记autoRepair=prefab，走阈值选择器而非开/关)
 for ar_prefab in pairs(GLOBAL.AUTOREPAIR_MEDALS or {}) do
@@ -94,28 +94,7 @@ local function IsUISwitchOn(cfg, g)
 	return cfg[g.group] ~= false
 end
 
---创建开/关箭头按钮，点击把组开关设为value
-local function MakeArrowButton(self, parent, dir, x, y, group, value, cfg)
-	local normal, over, disabled
-	if dir == "left" then
-		normal, over, disabled = "arrow2_left.tex", "arrow2_left_over.tex", "arrow_left_disabled.tex"
-	else
-		normal, over, disabled = "arrow2_right.tex", "arrow2_right_over.tex", "arrow_right_disabled.tex"
-	end
-	local btn = parent:AddChild(GLOBAL_ImageButton("images/global_redux.xml", normal, over, disabled))
-	btn:SetPosition(x, y, 0)
-	btn:SetScale(0.18)
-	btn:SetText("")
-	btn:SetOnClick(function()
-		cfg[group] = value
-		SaveConfig(cfg)
-		self:UpdateButtons(cfg)
-		GLOBAL.SyncGroupEnabled(cfg)--同步到服务端
-	end)
-	return btn
-end
-
---通用左右箭头按钮(左/右切换)，点击执行onClick(dir)。正义武神/自动补充等二值或多值选择器共用。禁用纹理与开/关箭头一致
+--通用左右箭头按钮(左/右切换)，点击执行onClick(dir)。所有选择器共用
 local function MakeSpinnerArrow(self, parent, dir, x, y, onClick)
 	local normal, over, disabled
 	if dir > 0 then
@@ -131,8 +110,7 @@ local function MakeSpinnerArrow(self, parent, dir, x, y, onClick)
 	return b
 end
 
---自动补充耐久阈值：{ [prefab]=百分比(10/20/30) }，0=关，nil=默认20%；选中即RPC同步服务端
-local AUTOREPAIR_THRESHOLDS = { 10, 20, 30 }
+--自动补充耐久阈值：0=关，nil=默认20%；选中即RPC同步服务端
 local DEFAULT_AUTOREPAIR = 20
 local function GetAutoRepairConfig()
 	return stored_data.autorepair or {}
@@ -148,6 +126,77 @@ local function SaveAutoRepair(cfg)
 	stored_data.autorepair = cfg
 	SavePersist()
 	GLOBAL.SyncAutoRepair(cfg)--同步服务端
+end
+
+--统一循环选择器描述(GetGroupSpec返回)：{read=读当前值, write=写值, values=有序选项序列, text=值→显示文字}
+--jvMode(正义武神)、autoRepair(自动补充阈值)、attackBlock(攻击拦截三态)、普通开关 全部统一为循环选择
+local function GetGroupSpec(g, cfg)
+	if g.jvMode then
+		return {
+			read = function() return GetJVMode() end,
+			write = function(v) SaveJVMode(v) end,
+			values = { "valkyrie", "justice" },--武神在前
+			text = function(v) return (v == "justice") and "正义" or "武神" end,
+			blackText = true,--黑字(与原版一致)
+		}
+	elseif g.autoRepair then
+		local is_justice = (g.autoRepair == "justice_certificate")
+		--正义勋章选项=目标序列(0=关,1..N=目标)；普通勋章=百分比(0=关,10/20/30)
+		local values
+		if is_justice then
+			local n = GLOBAL.JUSTICE_TARGETS and #GLOBAL.JUSTICE_TARGETS or 0
+			values = { 0 }
+			for i = 1, n do values[#values + 1] = i end
+		else
+			values = { 0, 10, 20, 30 }
+		end
+		return {
+			read = function() return GetAutoRepairThreshold(g.autoRepair) end,
+			write = function(v) local ac = GetAutoRepairConfig(); ac[g.autoRepair] = v; SaveAutoRepair(ac) end,
+			values = values,
+			text = function(v)
+				if is_justice then
+					local t = v and GLOBAL.JUSTICE_TARGETS[v]
+					return (t and t.name) or "关"
+				end
+				return v > 0 and (v .. "%") or "关"
+			end,
+			blackText = true,--黑字(与原版一致)
+		}
+	elseif g.attackBlock then
+		return {
+			read = function() return cfg[g.group] end,
+			write = function(v) cfg[g.group] = v; SaveConfig(cfg); GLOBAL.SyncGroupEnabled(cfg) end,
+			values = { false, "block", "detach" },--关/拦截/脱落
+			text = function(v) return (v == "block") and "拦截" or ((v == "detach") and "脱落" or "关") end,
+			blackText = true,--黑字(与其它选项一致)
+		}
+	else
+		--普通开关：关(false)/开(true)，循环
+		return {
+			read = function() return IsUISwitchOn(cfg, g) end,
+			write = function(v) cfg[g.group] = v; SaveConfig(cfg); GLOBAL.SyncGroupEnabled(cfg) end,
+			values = { false, true },
+			text = function(v) return v and "开" or "关" end,
+		}
+	end
+end
+
+--统一创建组选择器：左右循环箭头(点击在values里循环)，spec来自GetGroupSpec。返回btn_off,btn_on
+local function MakeCycler(self, cfg, spec, x, y)
+	local function Step(dir)
+		local cur = spec.read()
+		local idx = 1
+		for i, v in ipairs(spec.values) do if v == cur then idx = i break end end
+		idx = idx + dir
+		if idx < 1 then idx = #spec.values end
+		if idx > #spec.values then idx = 1 end
+		spec.write(spec.values[idx])
+		self:UpdateButtons(cfg)
+	end
+	local btn_off = MakeSpinnerArrow(self, self.root, -1, x - 40, y, Step)
+	local btn_on = MakeSpinnerArrow(self, self.root, 1, x + 10, y, Step)
+	return btn_off, btn_on
 end
 
 local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
@@ -230,57 +279,11 @@ local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 		state:SetPosition(x - 15, y, 0)
 		state:SetHAlign(GLOBAL.ANCHOR_MIDDLE)
 
-		local btn_off, btn_on
-		if g.jvMode then
-			--正义武神模式：左右箭头切换(左=正义，右=武神)
-			local function StepJv(dir)
-				SaveJVMode(dir < 0 and "justice" or "valkyrie")
-				self:UpdateButtons(cfg)--刷新state显示
-			end
-			btn_off = MakeSpinnerArrow(self, self.root, -1, x - 40, y, StepJv)
-			btn_on = MakeSpinnerArrow(self, self.root, 1, x + 10, y, StepJv)
-			state.jvMode = true--标记，供UpdateButtons刷新
-			state:SetString(GetJVMode() == "justice" and "正义" or "武神")
-		elseif g.autoRepair then
-			--自动补充勋章：普通勋章选百分比；正义勋章选目标(含智能)
-			local is_justice = (g.autoRepair == "justice_certificate")
-			local JCOUNT = GLOBAL.JUSTICE_TARGETS and #GLOBAL.JUSTICE_TARGETS or 0
-			local ar_cfg = GetAutoRepairConfig()
-			local function ThreshText(val)
-				if is_justice then
-					local t = val and GLOBAL.JUSTICE_TARGETS[val]
-					return (t and t.name) or "关"
-				end
-				return val > 0 and (val .. "%") or "关"
-			end
-			local function StepAr(dir)
-				local cur = GetAutoRepairThreshold(g.autoRepair)
-				local idx
-				if is_justice then
-					idx = cur or 0
-					idx = idx + dir
-					if idx < 0 then idx = JCOUNT end
-					if idx > JCOUNT then idx = 0 end
-				else
-					idx = 0
-					for j, t in ipairs(AUTOREPAIR_THRESHOLDS) do if t == cur then idx = j break end end
-					idx = idx + dir
-					if idx < 0 then idx = #AUTOREPAIR_THRESHOLDS end
-					if idx > #AUTOREPAIR_THRESHOLDS then idx = 0 end
-					idx = idx == 0 and 0 or AUTOREPAIR_THRESHOLDS[idx]
-				end
-					ar_cfg[g.autoRepair] = idx
-				SaveAutoRepair(ar_cfg)
-				state:SetString(ThreshText(GetAutoRepairThreshold(g.autoRepair)))
-			end
-			btn_off = MakeSpinnerArrow(self, self.root, -1, x - 40, y, StepAr)
-			btn_on = MakeSpinnerArrow(self, self.root, 1, x + 10, y, StepAr)
-			state.autoRepair = g.autoRepair--标记，供UpdateButtons读阈值
-			state:SetString(ThreshText(GetAutoRepairThreshold(g.autoRepair)))
-		else
-			btn_off = MakeArrowButton(self, self.root, "left", x - 40, y, g.group, false, cfg)
-			btn_on = MakeArrowButton(self, self.root, "right", x + 10, y, g.group, true, cfg)
-		end
+		--所有组(普通开关/jvMode/autoRepair/attackBlock)统一为循环选择器
+		local spec = GetGroupSpec(g, cfg)
+		state.spec = spec--供UpdateButtons刷新状态文字
+		state:SetString(spec.text(spec.read()))
+		local btn_off, btn_on = MakeCycler(self, cfg, spec, x, y)
 
 		self.buttons[idx] = { g = g, btn_off = btn_off, btn_on = btn_on, name = name, state = state }
 	end
@@ -301,41 +304,17 @@ end
 
 function MedalUIScreen:UpdateButtons(cfg)
 	for _, item in ipairs(self.buttons) do
-		if item.state.jvMode then
-			--正义武神模式：显示当前(正义/武神)；指向当前值的箭头禁用(左=正义，右=武神)
-			local isJ = GetJVMode() == "justice"
-			item.state:SetString(isJ and "正义" or "武神")
-			item.state:SetColour(0, 0, 0, 1)
-			if isJ then
-				item.btn_off:Disable()--已是正义，禁左箭头
-				item.btn_on:Enable()
+		local spec = item.state.spec
+		if spec ~= nil then
+			local v = spec.read()
+			item.state:SetString(spec.text(v))
+			--黑字组(正义武神/自动补充/攻击拦截)：恒黑字；普通开关：启用态高亮绿，关闭态红
+			if spec.blackText then
+				item.state:SetColour(0, 0, 0, 1)
 			else
-				item.btn_off:Enable()
-				item.btn_on:Disable()--已是武神，禁右箭头
-			end
-		elseif item.state.autoRepair then
-			--自动补充阈值项：正义勋章显示目标名，其他显示百分比
-			local pct = GetAutoRepairThreshold(item.state.autoRepair)
-			if item.state.autoRepair == "justice_certificate" then
-				local t = pct and GLOBAL.JUSTICE_TARGETS[pct]
-				item.state:SetString((t and t.name) or "关")
-			else
-				item.state:SetString(pct > 0 and (pct .. "%") or "关")
-			end
-			item.state:SetColour(0, 0, 0, 1)
-			item.btn_on:Enable()
-			item.btn_off:Enable()
-		else
-			local on = IsUISwitchOn(cfg, item.g)
-			item.state:SetString(on and "开" or "关")
-			item.state:SetColour(on and 0.3 or 1, on and 1 or 0.3, on and 0.3 or 0.3, 1)
-			--必须用Disable()/Enable()触发OnDisable切换禁用纹理，直接赋值enabled不刷新
-			if on then
-				item.btn_on:Disable()
-				item.btn_off:Enable()
-			else
-				item.btn_off:Disable()
-				item.btn_on:Enable()
+				local active = (v == true) or (v == "block") or (type(v) == "number" and v > 0)
+					or (spec.values ~= nil and spec.values[1] ~= false and v == spec.values[2])
+				item.state:SetColour(active and 0.3 or 0.6, active and 0.6 or 0.3, active and 0.3 or 0.3, 1)--启用态柔和绿，关闭态柔和红
 			end
 		end
 	end

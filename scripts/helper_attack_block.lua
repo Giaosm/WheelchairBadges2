@@ -22,12 +22,12 @@ local BLOCK_MATCH = {
 	["medal_block_test"]    = TestMatch,--考验
 }
 
---客户端：是否应拦截对 target 的攻击。开关开启 且 佩戴检验/考验勋章 且 目标不匹配该勋章 → true(拦截)
+--客户端：是否应拦截对 target 的攻击。仅"拦截"模式(attackBlock=="block")且佩戴检验/考验勋章且目标不匹配该勋章 → true(拦截)；"脱落"模式放行
 local function ShouldBlockAttackClient(player, target)
 	if player == nil or target == nil then return false end
-	--开关：UI"攻击拦截"(默认关)
+	--开关：UI"攻击拦截"(三态：false关/"block"拦截/"detach"脱落)
 	local cfg = GLOBAL.GetStoredConfig and GLOBAL.GetStoredConfig()
-	if cfg == nil or cfg["attackBlock"] ~= true then return false end
+	if cfg == nil or cfg["attackBlock"] ~= "block" then return false end
 	--佩戴的检验/考验勋章(标签由服务端同步，客户端可靠)
 	for tag, match in pairs(BLOCK_MATCH) do
 		if player:HasTag(tag) and not match(target) then

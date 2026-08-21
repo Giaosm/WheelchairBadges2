@@ -93,9 +93,63 @@ AddPlayerPostInit(function(inst)
 		return cfg[group] ~= false
 	end
 
+	--从勋章槽卸下勋章放回背包(直接佩戴场景)
+	local function UnequipSlotMedal(player, equipped)
+		local owner = equipped.components.inventoryitem and equipped.components.inventoryitem.owner
+		if owner ~= nil and owner.components.inventory ~= nil and equipped.components.equippable ~= nil
+			and equipped.components.equippable:IsEquipped() then
+			local item = owner.components.inventory:Unequip(equipped.components.equippable.equipslot)
+			if item ~= nil then
+				owner.components.inventory:GiveItem(item, nil, owner:GetPosition())
+				HelperDebug("自动装备脱落: 卸下%s(目标不匹配)", equipped.prefab)
+			end
+		end
+	end
+	--从融合勋章容器移除勋章放回背包(融合勋章内场景)，复用能力勋章TAKEOFFMEDAL逻辑
+	local function RemoveMedalFromFusion(player, medal, fusion)
+		if medal == nil or fusion == nil or fusion.components.container == nil then return end
+		if not medal.components.inventoryitem:IsHeldBy(fusion) then return end
+		local item = fusion.components.container:RemoveItem(medal)
+		if item ~= nil then
+			item.prevcontainer = nil
+			item.prevslot = nil
+			player.components.inventory:GiveItem(item)
+			HelperDebug("自动装备脱落: 从融合勋章移除%s(目标不匹配)", medal.prefab)
+		end
+	end
+	--脱落模式：攻击目标不匹配佩戴(含融合勋章内)的检验/考验勋章时自动卸下(放行攻击)。复用ACTION_TO_GROUP+MatchActionTarget，与自动装备同逻辑
+	local function TryDetachMedal(bufferedaction)
+		if inst.medal_group_enabled == nil or inst.medal_group_enabled["attackBlock"] ~= "detach" then return end
+		local entries = ACTION_TO_GROUP["ATTACK"]
+		if entries == nil then return end
+		local medal_slot = inst.components.inventory and inst.components.inventory:GetEquippedItem(GLOBAL.EQUIPSLOTS.MEDAL or GLOBAL.EQUIPSLOTS.NECK or GLOBAL.EQUIPSLOTS.BODY)
+		for _, entry in ipairs(entries) do
+			if entry.group == "valkyrieMedal" and entry.medal ~= nil
+				and entry.medal ~= "valkyrie_certificate" then--只处理检验/考验，最终女武神不脱落
+				local cond = entry.cond
+				local matched = cond ~= nil and U.MatchActionTarget(bufferedaction, cond)
+				--直接在勋章槽
+				if medal_slot ~= nil and medal_slot.prefab == entry.medal and not matched then
+					UnequipSlotMedal(inst, medal_slot)
+				end
+				--在融合勋章容器内
+				if medal_slot ~= nil and medal_slot.components and medal_slot.components.container then
+					for _, subitem in pairs(medal_slot.components.container.slots) do
+						if subitem ~= nil and subitem.prefab == entry.medal and not matched then
+							RemoveMedalFromFusion(inst, subitem, medal_slot)
+						end
+					end
+				end
+			end
+		end
+	end
+
 	local function TryAutoEquip(bufferedaction)
 		if bufferedaction == nil or bufferedaction.action == nil or bufferedaction.action.id == nil then return end
 		LogActionDebug(bufferedaction)
+		if bufferedaction.action.id == "ATTACK" then
+			TryDetachMedal(bufferedaction)--脱落：复用与自动装备相同的ACTION_TO_GROUP+MatchActionTarget判断
+		end
 		local entries = ACTION_TO_GROUP[bufferedaction.action.id]
 		if entries == nil then return end
 		local usedSlots = {}
