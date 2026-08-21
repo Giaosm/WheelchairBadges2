@@ -2,6 +2,7 @@
 --客户端读勋章不可靠，故佩戴的检验/考验勋章由服务端(helper_tags.lua)加标签同步(medal_block_examine/medal_block_test)，客户端 HasTag 可靠读取。
 --目标匹配规则与 helper_autoequip_actions.lua 里女武神组 ATTACK 的条件一致。
 local GLOBAL = GLOBAL
+local _rawget = rawget--strict下访问动态全局字段会报"未声明"，用rawget安全读取
 
 --------------------------------目标匹配规则(客户端/服务端通用)--------------------------------
 --检验勋章：大型怪物(largecreature+monster) 或 epic
@@ -25,8 +26,9 @@ local BLOCK_MATCH = {
 --客户端：是否应拦截对 target 的攻击。仅"拦截"模式(attackBlock=="block")且佩戴检验/考验勋章且目标不匹配该勋章 → true(拦截)；"脱落"模式放行
 local function ShouldBlockAttackClient(player, target)
 	if player == nil or target == nil then return false end
-	--开关：UI"攻击拦截"(三态：false关/"block"拦截/"detach"脱落)
-	local cfg = GLOBAL.GetStoredConfig and GLOBAL.GetStoredConfig()
+	--开关：UI"攻击拦截"(三态：false关/"block"拦截/"detach"脱落)。strict下用rawget避免访问未声明全局报错
+	local getcfg = _rawget(GLOBAL, "GetStoredConfig")
+	local cfg = getcfg and getcfg()
 	if cfg == nil or cfg["attackBlock"] ~= "block" then return false end
 	--佩戴的检验/考验勋章(标签由服务端同步，客户端可靠)
 	for tag, match in pairs(BLOCK_MATCH) do
