@@ -71,7 +71,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			DEPLOY        = { prefabs = { "portablecookpot_item", "portablespicer_item", "portableblender_item" } },	--展开便携设备
 			DISMANTLE     = { prefabs = { "portablecookpot", "portablespicer", "portableblender" } },	--收回便携设备
 			BUILD         = { recipe_builder_tag = { "masterchef", "professionalchef", "seasoningchef" } },	--制作厨师专属配方
-			EAT           = { actor_prefabs = { "warly" } },	--吃料理时自动装备(仅沃利)：佩戴时chef_onequipfn会SetMultipliers消除重复料理惩罚，且不污染非沃利说话栏
+			EAT           = { actor_prefabs = { "warly" } },	--吃料理时自动装备(仅沃利)
 		},
 	},
 	--巧手勋章组
