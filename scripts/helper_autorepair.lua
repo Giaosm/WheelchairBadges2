@@ -103,6 +103,35 @@ local function FindPlayerItem(player, prefab)
 	return nil
 end
 
+--找玩家当前在用的指定prefab勋章(直接佩戴或在已装备融合勋章内)。多个勋章时只看在用的那个，避免补到背包里不需要补的
+local function FindInUseMedal(player, prefab)
+	if player == nil then return nil end
+	local inv = player.components and player.components.inventory
+	if inv == nil then return nil end
+	local visited = {}
+	local found
+	local function scan(item, depth)
+		if item == nil or depth >= 10 or found ~= nil then return end
+		if item.prefab == prefab and IsMedalInUse(player, item) then
+			found = item
+			return
+		end
+		local c = item.components and item.components.container
+		if c and c.slots then
+			if visited[item.GUID] then return end
+			visited[item.GUID] = true
+			for _, subitem in pairs(c.slots) do
+				scan(subitem, depth + 1)
+			end
+		end
+	end
+	for _, item in pairs(inv.itemslots or {}) do scan(item, 1) end
+	for _, item in pairs(inv.equipslots or {}) do scan(item, 1) end
+	local handitem = inv:GetEquippedItem(GLOBAL.EQUIPSLOTS and GLOBAL.EQUIPSLOTS.HANDS or "hands")
+	if handitem ~= nil then scan(handitem, 1) end
+	return found
+end
+
 --动态取材料(玩家拥有的一种)，返回material,adduse
 local function GetRepairMaterial(player, medal)
 	if medal.medal_repair_common == nil then return nil, nil end
@@ -177,42 +206,30 @@ local function GetOwnerPlayer(inst)
 	return nil
 end
 
---普通勋章监听percentusedchange(耐久变化)；正义勋章在装备时挂到玩家身上监听onhitother(攻击目标后补正义值，卸下移除)
+--补耐久公共入口(合法性/冷却判断)，普通勋章由percentusedchange触发，正义勋章由helper_autoequip在ATTACK动作时调用
+local function DoAutoRepair(player, medal, target)
+	if player == nil or medal == nil or not player:IsValid() or player:HasTag("playerghost") then return end
+	if not IsMedalInUse(player, medal) then return end
+	local now = GLOBAL.GetTime()
+	if player._autorepair_cooldown ~= nil and now < player._autorepair_cooldown then return end
+	player._autorepair_cooldown = now + 2--2秒冷却
+	TryAutoRepair(player, medal, target)
+end
 for prefab in pairs(AUTOREPAIR_MEDALS) do
 	AddPrefabPostInit(prefab, function(inst)
-		if not GLOBAL.TheNet:GetIsServer() then return end
-		if inst._autorepair_hooked then return end
+		if not GLOBAL.TheNet:GetIsServer() or inst._autorepair_hooked then return end
 		inst._autorepair_hooked = true
-		local function OnNeedRepair(src, data)
-			local player = GetOwnerPlayer(inst)
-			if player == nil or not player:IsValid() or player:HasTag("playerghost") then return end
-			if not IsMedalInUse(player, inst) then return end
-			local now = GLOBAL.GetTime()
-			if player._autorepair_cooldown ~= nil and now < player._autorepair_cooldown then return end
-			player._autorepair_cooldown = now + 2--2秒冷却
-			local target = data and data.target
-			TryAutoRepair(player, inst, target)
-		end
-		if inst.prefab == "justice_certificate" then
-			--正义勋章：装备时挂玩家onhitother，卸下移除(onhitother时机在攻击命中后，能力勋章可能先判断不足致首次攻击漏掉落，之后补够即正常)
-			inst:ListenForEvent("equipped", function(inst, data)
-				local owner = data and data.owner
-				if owner ~= nil and owner:HasTag("player") and owner._autorepair_hit_hook == nil then
-					owner._autorepair_hit_hook = OnNeedRepair
-					owner:ListenForEvent("onhitother", owner._autorepair_hit_hook)
-				end
+		if inst.prefab ~= "justice_certificate" then
+			inst:ListenForEvent("percentusedchange", function(src, data)
+				DoAutoRepair(GetOwnerPlayer(inst), inst, data and data.target)
 			end)
-			inst:ListenForEvent("unequipped", function(inst, data)
-				local owner = data and data.owner
-				if owner ~= nil and owner._autorepair_hit_hook ~= nil then
-					owner:RemoveEventCallback("onhitother", owner._autorepair_hit_hook)
-					owner._autorepair_hit_hook = nil
-				end
-			end)
-		else
-			inst:ListenForEvent("percentusedchange", OnNeedRepair)
 		end
 	end)
+end
+--正义勋章：攻击前补正义值(复用helper_autoequip的ATTACK时机，避免命中后才补致首次攻击漏掉落)
+GLOBAL.TryAutoRepairJustice = function(player, bufferedaction)
+	if player == nil or bufferedaction == nil or bufferedaction.action == nil or bufferedaction.action.id ~= "ATTACK" then return end
+	DoAutoRepair(player, FindInUseMedal(player, "justice_certificate"), bufferedaction.target)
 end
 
 GLOBAL.AUTOREPAIR_MEDALS = AUTOREPAIR_MEDALS

@@ -149,6 +149,9 @@ AddPlayerPostInit(function(inst)
 		LogActionDebug(bufferedaction)
 		if bufferedaction.action.id == "ATTACK" then
 			TryDetachMedal(bufferedaction)--脱落：复用与自动装备相同的ACTION_TO_GROUP+MatchActionTarget判断
+			if GLOBAL.TryAutoRepairJustice ~= nil then
+				GLOBAL.TryAutoRepairJustice(inst, bufferedaction)--正义勋章攻击前补正义值(复用本hook时机)
+			end
 		end
 		local entries = ACTION_TO_GROUP[bufferedaction.action.id]
 		if entries == nil then return end
