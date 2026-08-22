@@ -22,6 +22,7 @@
 --          动作 = { hand_tags      = { "deployedfarmplant" } }, -- 手持物品(invobject)带"任一"指定标签即整体通过(与目标条件为"或"关系，常用于DEPLOY种下种子)
 --          动作 = { season_fish    = { prefab="season" } },      -- [必要条件]玩家周围献祭范围(BOOK_SACRIFICE_RADIUS)有指定季节鱼(地上实体)且当前季节≠对应季节才可触发(换季献祭需勋章)，未命中则return false(与目标prefabs判断为"与"关系)
 --          动作 = { slingshot_ammo = { "ammo" } },               -- [必要条件]手持弹弓当前装的弹药是"任一"指定prefab才触发(如沙刺弹medalslingshotammo_sandspike)；支持"tag:xxx"前缀匹配弹药物品标签
+--          动作 = { actor_prefabs  = { "warly" } },              -- [必要条件]执行动作的玩家prefab是"任一"指定才触发(如厨师组吃料理只在沃利时自动装备)，未命中则return false(与目标条件为"与"关系)
 --          动作 = { recipe_builder_tag = { "seasoningchef" } }, -- 制作配方的builder_tag命中才触发(区分勋章专属配方，如BUILD)
 --          动作 = { exclude_recipe_props = { "builder_tag" } }, -- 制作配方带指定属性(如builder_tag)则排除(其他勋章专属)
 --          动作 = { keep_recipe_builder_tag = { "handyperson" } }, -- 被exclude_recipe_props排除时，builder_tag命中此列表的保留(自己的专属配方)
@@ -70,6 +71,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			DEPLOY        = { prefabs = { "portablecookpot_item", "portablespicer_item", "portableblender_item" } },	--展开便携设备
 			DISMANTLE     = { prefabs = { "portablecookpot", "portablespicer", "portableblender" } },	--收回便携设备
 			BUILD         = { recipe_builder_tag = { "masterchef", "professionalchef", "seasoningchef" } },	--制作厨师专属配方
+			EAT           = { actor_prefabs = { "warly" } },	--吃料理时自动装备(仅沃利)：佩戴时chef_onequipfn会SetMultipliers消除重复料理惩罚，且不污染非沃利说话栏
 		},
 	},
 	--巧手勋章组

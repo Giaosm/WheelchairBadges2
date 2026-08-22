@@ -223,6 +223,17 @@ local function MatchActionTarget(bufferedaction, cond)
 	end
 	local target = bufferedaction.target or bufferedaction.invobject
 
+	--actor_prefabs：限制执行动作的玩家prefab(如厨师组吃料理只在沃利时自动装备)
+	if cond.actor_prefabs and #cond.actor_prefabs > 0 then
+		local doer = bufferedaction.doer
+		local doerprefab = doer ~= nil and doer.prefab or nil
+		local hit = false
+		for _, p in ipairs(cond.actor_prefabs) do
+			if doerprefab == p then hit = true break end
+		end
+		if not hit then return false end
+	end
+
 	if target ~= nil then
 		if cond.exclude_tags and #cond.exclude_tags > 0 then
 			for _, tag in ipairs(cond.exclude_tags) do

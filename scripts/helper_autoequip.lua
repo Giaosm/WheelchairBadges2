@@ -11,7 +11,7 @@ local COND_FIELDS = {
 	tags = true, all_tags = true, prefabs = true, has_component = true, props = true,
 	exclude_tags = true, exclude_all_tags = true, exclude_prefabs = true, hand_tags = true,
 	recipe_builder_tag = true, exclude_recipe_props = true, keep_recipe_builder_tag = true,
-	season_fish = true, slingshot_ammo = true,
+	season_fish = true, slingshot_ammo = true, actor_prefabs = true,
 }
 local SPECIAL_ACTIONS = { REINCARNATION = true }
 local SPECIAL_ACTION_ENTRIES = {}
