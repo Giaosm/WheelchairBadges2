@@ -59,6 +59,9 @@ local function RefreshPlayerMedalTags(player)
 		if rule.group == "wisdomMedal" and player.helper_medal_exam_running then
 			group_enabled = false--答题防reader消耗翻倍，不碰客户端权威开关值
 		end
+		if rule.group == "chefMedal" and player.helper_medal_eat_masterchef then
+			group_enabled = false--吃东西时临时关闭厨师组临时标签(防wisecracker播报only_used_by_warly)，吃完恢复。角色自带的标签不受影响
+		end
 		local owned = group_enabled and IsMedalOwned(player, prefab)
 		local equipped = group_enabled and IsMedalEquipped(player, prefab)
 		player.helper_medal_equip_state[prefab] = equipped
@@ -266,3 +269,28 @@ AddPrefabPostInit("world", function(inst)
 end)
 
 GLOBAL.RefreshPlayerMedalTags = RefreshPlayerMedalTags
+
+--吃东西时同步移除临时masterchef，防wisecracker在oneat播报only_used_by_warly(须在oneat前移除)
+AddComponentPostInit("eater", function(self)
+	local oldEat = self.Eat
+	if oldEat then
+		self.Eat = function(self, food, feeder, ...)
+			local inst = self.inst
+			local hidden = false
+			if inst ~= nil and not inst.helper_medal_eat_masterchef and GLOBAL.RefreshPlayerMedalTags ~= nil then
+				inst.helper_medal_eat_masterchef = true
+				GLOBAL.RefreshPlayerMedalTags(inst)--同步移除厨师组临时标签
+				hidden = true
+				if HelperDebug then HelperDebug("自动隐藏masterchef: 移除后HasTag=%s", tostring(inst:HasTag("masterchef"))) end
+			end
+			local results = { pcall(oldEat, self, food, feeder, ...) }
+			if hidden then
+				inst.helper_medal_eat_masterchef = nil
+				GLOBAL.RefreshPlayerMedalTags(inst)--吃完恢复
+			end
+			local ok = table.remove(results, 1)
+			if not ok then error(results[1]) end
+			return unpack(results)
+		end
+	end
+end)
