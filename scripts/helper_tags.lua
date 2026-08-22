@@ -277,7 +277,9 @@ AddComponentPostInit("eater", function(self)
 		self.Eat = function(self, food, feeder, ...)
 			local inst = self.inst
 			local hidden = false
-			if inst ~= nil and not inst.helper_medal_eat_masterchef and GLOBAL.RefreshPlayerMedalTags ~= nil then
+			--仅当确实有我们管理的临时masterchef时才移除，避免无厨师勋章/无临时标签的玩家吃东西也白刷新一次
+			if inst ~= nil and not inst.helper_medal_eat_masterchef and GLOBAL.RefreshPlayerMedalTags ~= nil
+				and inst.helper_medal_tags ~= nil and inst.helper_medal_tags["masterchef"] then
 				inst.helper_medal_eat_masterchef = true
 				GLOBAL.RefreshPlayerMedalTags(inst)--同步移除厨师组临时标签
 				hidden = true
