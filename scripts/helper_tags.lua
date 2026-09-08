@@ -352,19 +352,17 @@ if oldDropLossBundle then
 	HelperDebug("已Hook遗失包裹掉落")
 end
 
---未真装丰收时剥假medal_fastpicker走原版采集时长(真佩戴保留快采)
+--快采拦截(服务端权威)：未真装丰收时剥假medal_fastpicker走原版时长(真佩戴保留快采)。只hook wilson，客户端仅预测动画
 local FASTPICK_HOOK_ACTIONS = { "PICK", "HARVEST", "TAKEITEM" }
-for _, sgname in ipairs({ "wilson", "wilson_client" }) do
-	AddStategraphPostInit(sgname, function(sg)
-		for _, actionId in ipairs(FASTPICK_HOOK_ACTIONS) do
-			local action = ACTIONS and ACTIONS[actionId]
-			local handler = action and sg.actionhandlers[action]
-			if handler and handler.deststate then
-				local oldDestState = handler.deststate
-				handler.deststate = function(inst, bufferedaction, ...)
-					return WithTempTag(inst, "medal_fastpicker", oldDestState, inst, bufferedaction, ...)
-				end
+AddStategraphPostInit("wilson", function(sg)
+	for _, actionId in ipairs(FASTPICK_HOOK_ACTIONS) do
+		local action = ACTIONS and ACTIONS[actionId]
+		local handler = action and sg.actionhandlers[action]
+		if handler and handler.deststate then
+			local oldDestState = handler.deststate
+			handler.deststate = function(inst, bufferedaction, ...)
+				return WithTempTag(inst, "medal_fastpicker", oldDestState, inst, bufferedaction, ...)
 			end
 		end
-	end)
-end
+	end
+end)
