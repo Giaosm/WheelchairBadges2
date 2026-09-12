@@ -61,28 +61,29 @@ local function CraftingMenuHudPatch(self)
 		if self.waittoupdate then
 			self.needtoupdate = true
 			self.tech_tree_changed = self.waittorefresh
+			self.waittoupdate = false
+			self.waittorefresh = false
 			self:OnUpdate()
 		end
 		return result
 	end
 
+	local cmh_OnUpdate = self.OnUpdate
 	function self:OnUpdate(dt)
 		if self.needtoupdate then
-			self:RebuildRecipes()
 			if self:IsCraftingOpen() or isfirst then
 				isfirst = false
-				self.craftingmenu:Refresh(self.tech_tree_changed)
-			else
-				self.waittoupdate = self.needtoupdate
-				self.waittorefresh = self.tech_tree_changed
+				return cmh_OnUpdate(self, dt)--打开/首次：交给原实现全量重建+刷新
 			end
+			--关闭且非首次：只做轻量重建，把 craftingmenu 全量刷新推迟到打开时
+			self:RebuildRecipes()
 			self.pinbar:Refresh()
-
+			self.waittoupdate = true
+			self.waittorefresh = self.tech_tree_changed
 			self.needtoupdate = false
 			self.tech_tree_changed = false
 		end
-
-		self:RefreshCraftingHelpText()
+		return cmh_OnUpdate(self, dt)--原实现兜底(RefreshCraftingHelpText 等)，不吞将来官方/其他mod加的逻辑
 	end
 end
 

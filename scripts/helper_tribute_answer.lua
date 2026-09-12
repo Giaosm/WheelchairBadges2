@@ -40,6 +40,7 @@ if not GLOBAL.TheNet:IsDedicated() then
 					hint:SetClickable(false)
 				end
 			end
+			self.tribute_hints:MoveToFront()--官方1.6.8.0新增medal_tribute_panel，刷新/重排后可能压层，保持提示最上
 		end
 
 		local old_Open = self.Open

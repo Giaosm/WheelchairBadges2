@@ -7,7 +7,7 @@ local function IsTreasureMasterOn(doer)
 		and doer.medal_group_enabled["treasureMaster"] == true
 end
 
-local SIGN_TIME = (TUNING_MEDAL and TUNING_MEDAL.MEDAL_TREASURE_SIGN_TIME) or 60--标记/投影存在时长
+local SIGN_TIME = GLOBAL.GetMedalTuning("MEDAL_TREASURE_SIGN_TIME", 60)--标记/投影存在时长
 
 --藏宝点半透明投影(通用helper_projection，调用方设置外观)
 local function SpawnTreasureGhost(x, z)

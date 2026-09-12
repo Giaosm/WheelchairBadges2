@@ -258,6 +258,7 @@ local function OnPlayerInventoryChanged(player, data)
 end
 
 AddPlayerPostInit(function(player)
+	if not GLOBAL.TheNet:GetIsServer() then return end--标签由服务端权威下发(net_bool)，客户端本地刷新会用不完整信息(如复制勋章medalname)覆盖网络值
 	player:ListenForEvent("itemget", OnPlayerInventoryChanged)
 	player:ListenForEvent("itemlose", OnPlayerInventoryChanged)
 	player:ListenForEvent("equip", OnPlayerInventoryChanged)

@@ -231,17 +231,25 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protecte
 	local current_time = GLOBAL.GetTime()
 	local player_id = player.userid or player.guid or 0
 	local current_equipped = U.GetEquippedMedal(player)
+	if current_equipped ~= nil and not current_equipped:IsValid() then
+		current_equipped = nil
+		player_decision_caches[player_id] = nil
+	end
 
 	--先选最优融合勋章(按等级)，再带它选指定勋章：优先返回已在融合勋章内的，避免同prefab多个勋章来回换装
 	--forcedMedalItem：调用方直接指定实例(致命伤保命用)，保证"耐久判定"与"实际装备/被扣耐久"是同一枚
 	local bestFusion = U.FindBestFusionMedal(player)
+	if bestFusion ~= nil and not bestFusion:IsValid() then
+		bestFusion = nil
+		player_decision_caches[player_id] = nil
+	end
 	local bestMedal
 	if forcedMedalItem ~= nil and forcedMedalItem:IsValid() then
 		bestMedal = forcedMedalItem
 	elseif medalPrefab ~= nil then
 		bestMedal = U.FindSpecificMedal(player, group, medalPrefab, bestFusion)
 	end
-	if bestMedal == nil then return end--指定勋章找不到就放弃，不回退组内其它勋章
+	if bestMedal == nil or not bestMedal:IsValid() then return end--指定勋章找不到或已失效就放弃，不回退组内其它勋章
 
 	--缓存命中则静默
 	local decision_cache = player_decision_caches[player_id]

@@ -1,4 +1,4 @@
---蒙昧勋章自动答题：自动装备新华字典并周期答对，直到字典耗尽。开关读 medal_group_enabled["autoexam"]
+--蒙昧勋章自动答题：自动寻找新华字典并周期答对，直到字典耗尽。开关读 medal_group_enabled["autoexam"]
 local exam_interval = 0.3
 
 local function IsAutoExamEnabled(player)
@@ -17,14 +17,12 @@ if type(medal_exams) ~= "table" then
 	if HelperDebug then HelperDebug("蒙昧自动答题: 无法加载题目数据，已禁用") end
 end
 
-local function FindAndEquipDictionary(player)
+local function FindDictionary(player)
 	local inv = player.components.inventory
 	if inv == nil then return nil end
 	local dict = inv:GetEquippedItem(GLOBAL.EQUIPSLOTS.HANDS)
 	if dict ~= nil and dict.prefab == "xinhua_dictionary" then return dict end
-	dict = inv:FindItem(function(item) return item ~= nil and item.prefab == "xinhua_dictionary" end)
-	if dict ~= nil then inv:Equip(dict) end
-	return dict
+	return inv:FindItem(function(item) return item ~= nil and item.prefab == "xinhua_dictionary" end)
 end
 
 local player_tasks = {}
@@ -49,11 +47,26 @@ local function DoAutoExam(player)
 	if inv == nil or inv.EquipMedalWithName == nil then return end
 	local medal = inv:EquipMedalWithName("wisdom_test_certificate")
 	if medal == nil or medal.components.medal_examable == nil then StopAutoExam(player) return end
-	local dict = FindAndEquipDictionary(player)
-	if dict == nil or dict.components.finiteuses == nil then StopAutoExam(player) return end
-	if dict.components.finiteuses:GetUses() <= 0 then
+	local hand = inv:GetEquippedItem(GLOBAL.EQUIPSLOTS.HANDS)
+	--原版逻辑：字典必须手持才能答题；手上拿别的东西则不顶掉、停止答题
+	if hand ~= nil and hand.prefab ~= "xinhua_dictionary" then
 		StopAutoExam(player)
 		return
+	end
+	local dict = FindDictionary(player)
+	if dict == nil or dict.components.finiteuses == nil then
+		medal.used_dictionary = nil--字典没了就清标记，避免残留(换新字典不会少扣一题)
+		StopAutoExam(player)
+		return
+	end
+	if dict.components.finiteuses:GetUses() <= 0 then
+		medal.used_dictionary = nil
+		StopAutoExam(player)
+		return
+	end
+	--手部空则把字典装备到手上(符合官方"手持字典答题"语义)
+	if hand == nil then
+		inv:Equip(dict)
 	end
 	local examable = medal.components.medal_examable
 	local ex = medal_exams[examable.examid]
@@ -64,10 +77,8 @@ local function DoAutoExam(player)
 		dict.components.finiteuses:Use(1)
 		medal.used_dictionary = true
 	end
-	local old_say = GLOBAL.MedalSay
-	GLOBAL.MedalSay = function() end
+	--1.6.8.0 起答对分支不再调 MedalSay；本路径只传正确答案，无需再全局替换 MedalSay
 	local ok2, err = pcall(function() examable:MakeChoice(true_answer, player) end)
-	GLOBAL.MedalSay = old_say
 	if not ok2 and HelperDebug then HelperDebug("蒙昧自动答题出错: %s", tostring(err)) end
 end
 

@@ -274,7 +274,7 @@ local function MatchActionTarget(bufferedaction, cond)
 		local doer = bufferedaction.doer
 		if doer ~= nil then
 			local x, y, z = doer.Transform:GetWorldPosition()
-			local radius = (TUNING_MEDAL and TUNING_MEDAL.BOOK_SACRIFICE_RADIUS) or 4
+			local radius = GLOBAL.GetMedalTuning("BOOK_SACRIFICE_RADIUS", 5)
 			local ents = TheSim:FindEntities(x, y, z, radius, nil, { "INLIMBO", "player", "fx" })
 			for _, v in ipairs(ents) do
 				local fishSeason = cond.season_fish[v.prefab]

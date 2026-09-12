@@ -221,7 +221,10 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		action_targets = {
 			ATTACK = {
 				arrest_certificate = { prefabs = { "krampus", "medal_naughty_krampus" } },	--攻击坎普斯/复仇坎普斯戴逮捕勋章(击杀消耗耐久升级)
-				justice_certificate = { tags = { "epic", "monster", "norewardtoiler", "prefab:lightninggoat", "prefab:tentacle_pillar" } },	--攻击其他怪物戴正义勋章(获得正义值/触发掉落；闪电羊/巨型触手在justice_targetlist但无monster/epic标签，用prefab补充)
+				justice_certificate = {	--攻击其他怪物戴正义勋章(获得正义值/触发掉落)：对齐官方 onMedalHitOther
+					{ tags = { "epic", "monster", "norewardtoiler" } },	--官方标签判定
+					{ prefabs = { "krampus", "medal_naughty_krampus", "klaus", "bat", "lightninggoat", "tentacle", "tentacle_pillar", "medal_rage_krampus", "worm", "worm_boss", "antlion", "toadstool", "toadstool_dark" } },	--官方 justice_targetlist 全量(部分无monster/epic标签，只能靠prefab命中)
+				},
 			},
 		},
 	},

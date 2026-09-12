@@ -45,5 +45,13 @@ local function GetPlayerMedals(inst)
 	return names
 end
 
+--取官方勋章调参：裸 TUNING_MEDAL 不保证存在；嵌套项仍直接读 MedalAPI.TUNING_MEDAL
+local function GetMedalTuning(name, default)
+	local tuning = GLOBAL.MedalAPI and GLOBAL.MedalAPI.TUNING_MEDAL
+	local value = tuning ~= nil and tuning[name] or nil
+	return value ~= nil and value or default
+end
+
 GLOBAL.GetPlayerMedalItems = GetPlayerMedalItems
 GLOBAL.GetPlayerMedals = GetPlayerMedals
+GLOBAL.GetMedalTuning = GetMedalTuning
