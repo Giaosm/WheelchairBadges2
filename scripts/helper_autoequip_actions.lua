@@ -142,7 +142,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		name = "时空勋章",
 		action_ids = {
 			"MEDAL_GRINDING",		--整组研磨(时空勋章+主厨勋章)
-			"MEDALFEEDBIRD",		--整组喂鸟(时空勋章+本源)
+			"MEDALFEEDBIRD",		--整组喂鸟
 			"MEDALDELIVERYTREASURE",--快速挖宝(时空勋章+本源)
 			"REINCARNATION",		--致命伤时空守护(本源+时空自动装备保命)
 		},
@@ -150,6 +150,8 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			BUILD = { recipe_builder_tag = { "spacetime_medal" } },	--制作时空专属配方(琥珀灵石/水晶球/改命药水/时空符文/时空尘蛾窝等)
 			READ   = { prefabs = { "unsolved_book" }, season_fish = { oceanfish_small_7_inv = "spring", oceanfish_small_8_inv = "summer", oceanfish_small_6_inv = "autumn", oceanfish_medium_8_inv = "winter" } },	--阅读未解之谜书献祭季节鱼换季(时空勋章)
 			ATTACK = { slingshot_ammo = { "medalslingshotammo_sandspike" } },	--弹弓装沙刺弹攻击(佩戴时空勋章无视地形生成时空之刃)
+			WASHFUNCTIONAL = { prefabs = { "yellowstaff" } },	--能力清洗
+			COOK = { prefabs = { "medal_cookpot" } },	--红晶锅烹饪
 		},
 	},
 	--童真勋章组

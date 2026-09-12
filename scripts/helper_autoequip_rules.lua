@@ -85,6 +85,7 @@ HelperRules_AUTO_EQUIP = {
 			["mediumfishing_certificate"] = 10,	--垂钓(快速杀鱼)
 		},
 		COOK = {
+			["space_time_certificate"] = 30,	--时空(红晶锅烹饪)
 			["headchef_certificate"]   = 20,	--主厨(快速烹饪)
 			["chef_certificate"]       = 20,	--大厨(快速烹饪)
 			["bathingfire_certificate"] = 10,	--浴火(快速烹饪)
