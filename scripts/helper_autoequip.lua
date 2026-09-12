@@ -93,62 +93,10 @@ AddPlayerPostInit(function(inst)
 		return cfg[group] ~= false
 	end
 
-	--从勋章槽卸下勋章放回背包(直接佩戴场景)
-	local function UnequipSlotMedal(player, equipped)
-		local owner = equipped.components.inventoryitem and equipped.components.inventoryitem.owner
-		if owner ~= nil and owner.components.inventory ~= nil and equipped.components.equippable ~= nil
-			and equipped.components.equippable:IsEquipped() then
-			local item = owner.components.inventory:Unequip(equipped.components.equippable.equipslot)
-			if item ~= nil then
-				owner.components.inventory:GiveItem(item, nil, owner:GetPosition())
-				HelperDebug("自动装备脱落: 卸下%s(目标不匹配)", equipped.prefab)
-			end
-		end
-	end
-	--从融合勋章容器移除勋章放回背包(融合勋章内场景)，复用能力勋章TAKEOFFMEDAL逻辑
-	local function RemoveMedalFromFusion(player, medal, fusion)
-		if medal == nil or fusion == nil or fusion.components.container == nil then return end
-		if not medal.components.inventoryitem:IsHeldBy(fusion) then return end
-		local item = fusion.components.container:RemoveItem(medal)
-		if item ~= nil then
-			item.prevcontainer = nil
-			item.prevslot = nil
-			player.components.inventory:GiveItem(item)
-			HelperDebug("自动装备脱落: 从融合勋章移除%s(目标不匹配)", medal.prefab)
-		end
-	end
-	--脱落模式：攻击目标不匹配佩戴(含融合勋章内)的检验/考验勋章时自动卸下(放行攻击)。复用ACTION_TO_GROUP+MatchActionTarget，与自动装备同逻辑
-	local function TryDetachMedal(bufferedaction)
-		if inst.medal_group_enabled == nil or inst.medal_group_enabled["attackBlock"] ~= "detach" then return end
-		local entries = ACTION_TO_GROUP["ATTACK"]
-		if entries == nil then return end
-		local medal_slot = inst.components.inventory and inst.components.inventory:GetEquippedItem(GLOBAL.EQUIPSLOTS.MEDAL or GLOBAL.EQUIPSLOTS.NECK or GLOBAL.EQUIPSLOTS.BODY)
-		for _, entry in ipairs(entries) do
-			if entry.group == "valkyrieMedal" and entry.medal ~= nil
-				and entry.medal ~= "valkyrie_certificate" then--只处理检验/考验，最终女武神不脱落
-				local cond = entry.cond
-				local matched = cond ~= nil and U.MatchActionTarget(bufferedaction, cond)
-				--直接在勋章槽
-				if medal_slot ~= nil and medal_slot.prefab == entry.medal and not matched then
-					UnequipSlotMedal(inst, medal_slot)
-				end
-				--在融合勋章容器内
-				if medal_slot ~= nil and medal_slot.components and medal_slot.components.container then
-					for _, subitem in pairs(medal_slot.components.container.slots) do
-						if subitem ~= nil and subitem.prefab == entry.medal and not matched then
-							RemoveMedalFromFusion(inst, subitem, medal_slot)
-						end
-					end
-				end
-			end
-		end
-	end
-
 	local function TryAutoEquip(bufferedaction)
 		if bufferedaction == nil or bufferedaction.action == nil or bufferedaction.action.id == nil then return end
 		LogActionDebug(bufferedaction)
 		if bufferedaction.action.id == "ATTACK" then
-			TryDetachMedal(bufferedaction)--脱落：复用与自动装备相同的ACTION_TO_GROUP+MatchActionTarget判断
 			if GLOBAL.TryAutoRepairJustice ~= nil then
 				GLOBAL.TryAutoRepairJustice(inst, bufferedaction)--正义勋章攻击前补正义值(复用本hook时机)
 			end
@@ -272,7 +220,7 @@ end)
 
 --------------------------------组合装备--------------------------------
 local player_decision_caches = {}
-local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectedSet, medalPrefab)
+local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectedSet, medalPrefab, forcedMedalItem)
 	if player == nil or not player:HasTag("player") then return end
 	local inv = player.components.inventory
 	if inv == nil then return end
@@ -285,9 +233,12 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protecte
 	local current_equipped = U.GetEquippedMedal(player)
 
 	--先选最优融合勋章(按等级)，再带它选指定勋章：优先返回已在融合勋章内的，避免同prefab多个勋章来回换装
+	--forcedMedalItem：调用方直接指定实例(致命伤保命用)，保证"耐久判定"与"实际装备/被扣耐久"是同一枚
 	local bestFusion = U.FindBestFusionMedal(player)
 	local bestMedal
-	if medalPrefab ~= nil then
+	if forcedMedalItem ~= nil and forcedMedalItem:IsValid() then
+		bestMedal = forcedMedalItem
+	elseif medalPrefab ~= nil then
 		bestMedal = U.FindSpecificMedal(player, group, medalPrefab, bestFusion)
 	end
 	if bestMedal == nil then return end--指定勋章找不到就放弃，不回退组内其它勋章
@@ -334,20 +285,38 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protecte
 end
 
 --------------------------------时空守护(致命伤保命)--------------------------------
+--选保命用勋章实例：组内、本源可加成，取"耐久最高"的一枚
+--(FindBestGroupMedal 同分时取的是遍历到的第一枚，可能是低耐久那枚，导致"判断够用、实际扣不够")
+local function FindReincarnationMedal(player, group)
+	local best, best_uses
+	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
+		local prefab = (item.prefab == "copy_blank_certificate" and item.medalname) or item.prefab
+		local fu = item.components and item.components.finiteuses
+		if prefab ~= nil and fu ~= nil and U.MEDAL_GROUP[prefab] == group and U.ORIGIN_BONUS_MAP[prefab] ~= nil then
+			local uses = fu:GetUses()
+			if best_uses == nil or uses > best_uses then
+				best, best_uses = item, uses
+			end
+		end
+	end
+	return best, best_uses
+end
+
 local function TryFatalDamageAutoEquip(inst)
 	if inst == nil or not inst:HasTag("player") or inst:HasTag("playerghost") then return end
+	--与官方一致的状态守卫：官方在这些状态下不消耗耐久，避免无谓换装
+	if inst.sg ~= nil and (inst.sg:HasStateTag("fallhole") or inst.sg:HasStateTag("dead")) then return end
 	local entries = SPECIAL_ACTION_ENTRIES["REINCARNATION"]
 	if entries == nil or U.GetOriginMedal(inst) == nil then return end
 	for _, entry in ipairs(entries) do
 		local group = entry.group
 		local cfg = inst.medal_group_enabled
 		if cfg == nil or cfg[group] ~= false then
-			local best = U.FindBestGroupMedal(inst, group)
-			local prefab = best and ((best.prefab == "copy_blank_certificate" and best.medalname) or best.prefab) or nil
-			if prefab ~= nil and U.ORIGIN_BONUS_MAP[prefab] ~= nil
-				and best.components.finiteuses
-				and best.components.finiteuses:GetUses() >= REINCARNATION_CONSUME then
-				AutoEquipMedalForGroup(inst, group, { action = { id = "REINCARNATION" } })
+			local best, uses = FindReincarnationMedal(inst, group)
+			local prefab = best ~= nil and ((best.prefab == "copy_blank_certificate" and best.medalname) or best.prefab) or nil
+			if prefab ~= nil and uses ~= nil and uses >= REINCARNATION_CONSUME then
+				--透传best实例：避免内部再次查找时换成另一枚(导致"检查够用、实际扣不够")
+				AutoEquipMedalForGroup(inst, group, { action = { id = "REINCARNATION" } }, nil, nil, prefab, best)
 				HelperDebug("时空守护: 致命伤自动装备组%s(本源+%s)", group, prefab)
 			end
 		end

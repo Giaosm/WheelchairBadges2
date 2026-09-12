@@ -10,14 +10,14 @@ local GLOBAL_ImageButton = GLOBAL.require("widgets/imagebutton")
 local GLOBAL_TEMPLATES = GLOBAL.require("widgets/redux/templates")
 
 --勋章组列表(自动装备组，取helper_autoequip_actions.lua的name；特殊开关如autoexam自动答题走额外名字映射)
-local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "speedMedal", "childMedal", "shadowmagicMedal", "naughtyMedal", "fishingMedal", "bathfireMedal", "tentacleMedal", "inheritMedal", "justiceMedal", "jvMode", "valkyrieMedal", "attackBlock", "autoexam", "tributeAnswer", "treasureMaster" }
+local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "speedMedal", "childMedal", "shadowmagicMedal", "naughtyMedal", "fishingMedal", "bathfireMedal", "tentacleMedal", "inheritMedal", "justiceMedal", "jvMode", "valkyrieMedal", "autoexam", "tributeAnswer", "treasureMaster" }
 --非自动装备组的开关中文名
-local UI_EXTRA_NAMES = { autoexam = "自动答题", tributeAnswer = "奉纳透视", jvMode = "正义武神", attackBlock = "攻击拦截", treasureMaster = "寻宝大师" }
+local UI_EXTRA_NAMES = { autoexam = "自动答题", tributeAnswer = "奉纳透视", jvMode = "正义武神", treasureMaster = "寻宝大师" }
 local UI_GROUPS = {}
 for _, g in ipairs(UI_GROUP_ORDER) do
 	local name = (HelperRules_AUTO_EQUIP_ACTIONS[g] and HelperRules_AUTO_EQUIP_ACTIONS[g].name)
 		or UI_EXTRA_NAMES[g] or g
-	table.insert(UI_GROUPS, { group = g, name = name, defaultOff = (g == "tributeAnswer" or g == "attackBlock" or g == "treasureMaster"), jvMode = (g == "jvMode"), attackBlock = (g == "attackBlock") })
+	table.insert(UI_GROUPS, { group = g, name = name, defaultOff = (g == "tributeAnswer" or g == "treasureMaster"), jvMode = (g == "jvMode") })
 end
 --自动补充勋章直接排进网格(标记autoRepair=prefab，走阈值选择器而非开/关)
 for ar_prefab in pairs(GLOBAL.AUTOREPAIR_MEDALS or {}) do
@@ -46,7 +46,6 @@ end
 
 local function GetStoredConfig() return stored_data.group_enabled or {} end
 local function SaveConfig(cfg) stored_data.group_enabled = cfg; SavePersist() end
-GLOBAL.GetStoredConfig = GetStoredConfig--供客户端攻击拦截等读取开关状态
 
 --正义武神模式(justice=正义/valkyrie=武神，默认武神)：影响跨组优先级ATTACK里考验/检验的优先级
 local function GetJVMode()
@@ -129,7 +128,7 @@ local function SaveAutoRepair(cfg)
 end
 
 --统一循环选择器描述(GetGroupSpec返回)：{read=读当前值, write=写值, values=有序选项序列, text=值→显示文字}
---jvMode(正义武神)、autoRepair(自动补充阈值)、attackBlock(攻击拦截三态)、普通开关 全部统一为循环选择
+--jvMode(正义武神)、autoRepair(自动补充阈值)、普通开关 全部统一为循环选择
 local function GetGroupSpec(g, cfg)
 	if g.jvMode then
 		return {
@@ -162,14 +161,6 @@ local function GetGroupSpec(g, cfg)
 				return v > 0 and (v .. "%") or "关"
 			end,
 			blackText = true,--黑字(与原版一致)
-		}
-	elseif g.attackBlock then
-		return {
-			read = function() return cfg[g.group] end,
-			write = function(v) cfg[g.group] = v; SaveConfig(cfg); GLOBAL.SyncGroupEnabled(cfg) end,
-			values = { false, "block", "detach" },--关/拦截/脱落
-			text = function(v) return (v == "block") and "拦截" or ((v == "detach") and "脱落" or "关") end,
-			blackText = true,--黑字(与其它选项一致)
 		}
 	else
 		--普通开关：关(false)/开(true)，循环
@@ -279,7 +270,7 @@ local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 		state:SetPosition(x - 15, y, 0)
 		state:SetHAlign(GLOBAL.ANCHOR_MIDDLE)
 
-		--所有组(普通开关/jvMode/autoRepair/attackBlock)统一为循环选择器
+		--所有组(普通开关/jvMode/autoRepair)统一为循环选择器
 		local spec = GetGroupSpec(g, cfg)
 		state.spec = spec--供UpdateButtons刷新状态文字
 		state:SetString(spec.text(spec.read()))
@@ -308,11 +299,11 @@ function MedalUIScreen:UpdateButtons(cfg)
 		if spec ~= nil then
 			local v = spec.read()
 			item.state:SetString(spec.text(v))
-			--黑字组(正义武神/自动补充/攻击拦截)：恒黑字；普通开关：启用态高亮绿，关闭态红
+			--黑字组(正义武神/自动补充)：恒黑字；普通开关：启用态高亮绿，关闭态红
 			if spec.blackText then
 				item.state:SetColour(0, 0, 0, 1)
 			else
-				local active = (v == true) or (v == "block") or (type(v) == "number" and v > 0)
+				local active = (v == true) or (type(v) == "number" and v > 0)
 					or (spec.values ~= nil and spec.values[1] ~= false and v == spec.values[2])
 				item.state:SetColour(active and 0.3 or 0.6, active and 0.6 or 0.3, active and 0.3 or 0.3, 1)--启用态柔和绿，关闭态柔和红
 			end
@@ -420,8 +411,10 @@ local function GetMedalGroupOf()
 		local pdef = GLOBAL.Prefabs[prefab]
 		if pdef and pdef.fn then
 			local ok, inst = pcall(pdef.fn)
-			if ok and inst and inst.grouptag and inst.grouptag ~= prefab then
-				map[prefab] = inst.grouptag
+			--只要实例化成功就必须回收：无独立grouptag的勋章(巧手/丰收/触手等)若不移除会泄漏实体
+			if ok and type(inst) == "table" and inst.Remove ~= nil then
+				local gt = inst.grouptag
+				if gt ~= nil and gt ~= prefab then map[prefab] = gt end
 				inst:Remove()
 			end
 		end

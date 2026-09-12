@@ -32,6 +32,11 @@ for _, t in ipairs(JUSTICE_TARGETS) do
 end
 JUSTICE_SMART_INDEX = #JUSTICE_TARGETS--智能项索引
 
+--官方常量：从能力勋章环境读取，避免官方调值后本模组算错(1.6.8.0 把 GIFT_VALUE_MULT 由 5 改为 2)
+local JUSTICE_TUNING = (GLOBAL.MedalAPI and GLOBAL.MedalAPI.TUNING_MEDAL
+	and GLOBAL.MedalAPI.TUNING_MEDAL.JUSTICE_MEDAL) or {}
+local GIFT_VALUE_MULT = JUSTICE_TUNING.GIFT_VALUE_MULT or 2--每1点包果价值消耗的正义值(暗影挑战符召唤物)
+
 --读取勋章耐久(当前,上限)，兼容armor/finiteuses/fueled
 local function GetMedalDurability(medal)
 	if medal == nil then return nil, nil end
@@ -149,8 +154,8 @@ local function GetNeedJustice(player, target)
 	if target == nil or not target:IsValid() then return 0 end
 	local has_origin = player:HasOriginMedal()
 	if target.prefab == "medal_beequeen" then return 5 end--凋零之蜂防控制，固定5不看本源
-	if target.gift_value ~= nil and target:HasTag("norewardtoiler") then--暗影生物gift_value*5
-		local need = target.gift_value * 5
+	if target.gift_value ~= nil and target:HasTag("norewardtoiler") then--暗影生物：包果价值×GIFT_VALUE_MULT
+		local need = target.gift_value * GIFT_VALUE_MULT
 		if has_origin then need = math.ceil(need * 0.4) end
 		return need
 	end
