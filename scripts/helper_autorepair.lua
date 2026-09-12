@@ -147,7 +147,7 @@ end
 --智能模式：按攻击目标算所需正义值(对齐能力勋章)。0=无需补充
 local function GetNeedJustice(player, target)
 	if target == nil or not target:IsValid() then return 0 end
-	local has_origin = GLOBAL.HasOriginMedal(player)
+	local has_origin = player:HasOriginMedal()
 	if target.prefab == "medal_beequeen" then return 5 end--凋零之蜂防控制，固定5不看本源
 	if target.gift_value ~= nil and target:HasTag("norewardtoiler") then--暗影生物gift_value*5
 		local need = target.gift_value * 5
@@ -179,7 +179,7 @@ local function TryAutoRepair(player, medal, target)
 			local t = JUSTICE_TARGETS[threshold]
 			if t == nil then return end
 			need = t.value
-			if not t.no_origin_discount and GLOBAL.HasOriginMedal(player) then
+			if not t.no_origin_discount and player:HasOriginMedal() then
 				need = math.ceil(need * 0.4)
 			end
 		end

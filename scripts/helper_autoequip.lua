@@ -162,11 +162,21 @@ AddPlayerPostInit(function(inst)
 		if next(protectedSet) ~= nil then
 			local protectedEquipped = GLOBAL.GetEquippedProtectedMedal(inst, protectedSet)
 			if protectedEquipped ~= nil then
-				local fusion = U.FindAnyFusion(inst)
-				if fusion == nil then return end--无融合可收纳，保住不动
-				U.PutMedalIntoFusion(inst, fusion, protectedEquipped, usedSlots, protectedSet)
-				if inst.components.inventory then
-					inst.components.inventory:Equip(fusion)--装备融合勋章回勋章槽，确保勋章槽不空
+				--玩家手动把某物装备进勋章槽(右击融合勋章/单勋章)时，受保护勋章会被原生换装正常卸到背包，
+				--不要再把它塞进融合勋章并重复装备，否则两次 Equip + 嵌套容器搬运冲突导致勋章丢失
+				local medalSlot = GLOBAL.EQUIPSLOTS.MEDAL or GLOBAL.EQUIPSLOTS.NECK or GLOBAL.EQUIPSLOTS.BODY
+				local equipItem = bufferedaction.invobject or bufferedaction.target
+				local isMedalSlotEquip = bufferedaction.action.id == "EQUIP"
+					and equipItem ~= nil and equipItem.components
+					and equipItem.components.equippable ~= nil
+					and equipItem.components.equippable.equipslot == medalSlot
+				if not isMedalSlotEquip then
+					local fusion = U.FindAnyFusion(inst)
+					if fusion == nil then return end--无融合可收纳，保住不动
+					U.PutMedalIntoFusion(inst, fusion, protectedEquipped, usedSlots, protectedSet)
+					if inst.components.inventory then
+						inst.components.inventory:Equip(fusion)--装备融合勋章回勋章槽，确保勋章槽不空
+					end
 				end
 			end
 		end

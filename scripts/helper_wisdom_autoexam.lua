@@ -51,18 +51,18 @@ local function DoAutoExam(player)
 	if medal == nil or medal.components.medal_examable == nil then StopAutoExam(player) return end
 	local dict = FindAndEquipDictionary(player)
 	if dict == nil or dict.components.finiteuses == nil then StopAutoExam(player) return end
+	if dict.components.finiteuses:GetUses() <= 0 then
+		StopAutoExam(player)
+		return
+	end
 	local examable = medal.components.medal_examable
-	local true_answer = medal_exams[examable.examid] and medal_exams[examable.examid].answer
-	if true_answer == nil then return end
-	--hasdictionary控制字典消耗(对齐能力勋章)；耗尽停止
-	if not player.hasdictionary then
-		if dict.components.finiteuses:GetUses() > 0 then
-			dict.components.finiteuses:Use(1)
-			player.hasdictionary = true
-		else
-			StopAutoExam(player)
-			return
-		end
+	local ex = medal_exams[examable.examid]
+	local true_answer = ex and ex.answer
+	--未知题仍交MakeChoice自动跳下一题
+	--本回合已用字典则不再重复扣
+	if not medal.used_dictionary then
+		dict.components.finiteuses:Use(1)
+		medal.used_dictionary = true
 	end
 	local old_say = GLOBAL.MedalSay
 	GLOBAL.MedalSay = function() end
