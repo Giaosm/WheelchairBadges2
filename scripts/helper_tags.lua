@@ -114,7 +114,9 @@ local function RefreshPlayerMedalTags(player)
 			and prev_equip[prefab] ~= nil and prev_equip[prefab] ~= equipped then
 			equip_changed = true
 		end
-		if owned and not equipped then
+		--对齐排除(helper_equip_align.lua)：本次动作缺佩的勋章，整条规则不赋临时项(标签/组件/等级标签)
+		local align_exclude = player.helper_medal_align_exclude
+		if owned and not equipped and not (align_exclude ~= nil and align_exclude[prefab]) then
 			for _, tag in ipairs(rule.tags or {}) do
 				tag_should[tag] = true
 			end
@@ -272,6 +274,7 @@ AddPrefabPostInit("world", function(inst)
 	end)
 end)
 GLOBAL.RefreshPlayerMedalTags = RefreshPlayerMedalTags
+GLOBAL.FindEquippedMedal = FindEquippedMedal--供 helper_equip_align 判断勋章是否真佩戴
 
 ----------------------------------------临时标签动作剥离----------------------------------------
 --剥临时标签执行fn再恢复；仅mod临时标签且非真佩戴才剥
@@ -343,18 +346,3 @@ if oldDropLossBundle then
 	end
 	HelperDebug("已Hook遗失包裹掉落")
 end
-
---快采拦截(服务端权威)：未真装丰收时剥假medal_fastpicker走原版时长(真佩戴保留快采)。只hook wilson，客户端仅预测动画
-local FASTPICK_HOOK_ACTIONS = { "PICK", "HARVEST", "TAKEITEM" }
-AddStategraphPostInit("wilson", function(sg)
-	for _, actionId in ipairs(FASTPICK_HOOK_ACTIONS) do
-		local action = ACTIONS and ACTIONS[actionId]
-		local handler = action and sg.actionhandlers[action]
-		if handler and handler.deststate then
-			local oldDestState = handler.deststate
-			handler.deststate = function(inst, bufferedaction, ...)
-				return WithTempTag(inst, "medal_fastpicker", oldDestState, inst, bufferedaction, ...)
-			end
-		end
-	end
-end)

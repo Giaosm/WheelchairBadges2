@@ -93,6 +93,15 @@ AddPlayerPostInit(function(inst)
 		return cfg[group] ~= false
 	end
 
+	--记录本次"应佩戴"(=全部决赛勋章)供helper_equip_align对齐检查；同一动作多触发点会重复进来，只在首次打日志
+	local function RecordExpected(bufferedaction, expected)
+		local first = bufferedaction.helper_expected_medals == nil
+		bufferedaction.helper_expected_medals = expected
+		if first and TUNING.HELPER_DEBUG_SWITCH then
+			HelperDebug("自动装备决策[%s] 应佩戴: %s", bufferedaction.action.id, table.concat(expected, " "))
+		end
+	end
+
 	local function TryAutoEquip(bufferedaction)
 		if bufferedaction == nil or bufferedaction.action == nil or bufferedaction.action.id == nil then return end
 		LogActionDebug(bufferedaction)
@@ -178,22 +187,34 @@ AddPlayerPostInit(function(inst)
 			table.sort(finalists, function(a, b) return a.prio > b.prio end)
 			--有决赛选手则装备：有融合勋章时按优先级逐个装(能装几个装几个)；无融合勋章时勋章槽只有一个，只装冠军
 			if #finalists > 0 then
+				--应佩戴=全部决赛勋章(装不下的也算，供helper_equip_align判缺佩)
+				local expected = {}
+				for _, f in ipairs(finalists) do
+					table.insert(expected, f.info.medal)
+				end
 				if U.FindAnyFusion(inst) ~= nil then
 					for _, f in ipairs(finalists) do
 						AutoEquipMedalForGroup(inst, f.group, bufferedaction, usedSlots, protectedSet, f.info.medal)
+						--标记已处理勋章不可移走：防后续低优先级勋章把它挤出融合勋章(缓存/已在内提前返回也拦得住)
+						protectedSet[f.info.medal] = true
 					end
 				else
 					AutoEquipMedalForGroup(inst, finalists[1].group, bufferedaction, usedSlots, protectedSet, finalists[1].info.medal)
 				end
+				RecordExpected(bufferedaction, expected)
 				return
 			end
 			--无决赛选手(命中的组都不在优先级表) → 回退逐组装备
 		end
 
 		--逐组装备
+		local expected = {}
 		for group, info in pairs(group_best) do
 			AutoEquipMedalForGroup(inst, group, bufferedaction, usedSlots, protectedSet, info.medal)
+			table.insert(expected, info.medal)
+			protectedSet[info.medal] = true--同上：防止被后续勋章挤出融合勋章
 		end
+		RecordExpected(bufferedaction, expected)
 	end
 
 	inst:ListenForEvent("actionqueued", function(src, data)

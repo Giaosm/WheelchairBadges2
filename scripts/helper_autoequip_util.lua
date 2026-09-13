@@ -172,9 +172,24 @@ end
 --把勋章放入融合勋章：已在内则不动；内有同组旧勋章则替换，旧勋章顶替新勋章原位置
 local function PutMedalIntoFusion(player, fusion, medal, usedSlots, protectedSet)
 	if medal == nil or fusion == nil or not fusion.components.container then return end
-	if IsHeldBy(medal, fusion) then return end
-
 	local container = fusion.components.container
+	if IsHeldBy(medal, fusion) then
+		--已在内也要登记该格"已用"：否则后续低优先级勋章会选它替换，把已装的高优先级勋章挤出去
+		if usedSlots ~= nil then
+			for i = 1, container:GetNumSlots() do
+				if container:GetItemInSlot(i) == medal then
+					usedSlots[fusion] = usedSlots[fusion] or {}
+					usedSlots[fusion][i] = true
+					if TUNING.HELPER_DEBUG_SWITCH then
+						HelperDebug("融合勋章[%s] 已在格%d(标记已用): %s", fusion.prefab, i, tostring(medal.prefab))
+					end
+					break
+				end
+			end
+		end
+		return
+	end
+
 	local targetslot = FindFusionSlot(fusion, medal, usedSlots, protectedSet)
 	if targetslot == nil then return end
 	if usedSlots ~= nil then
@@ -189,6 +204,10 @@ local function PutMedalIntoFusion(player, fusion, medal, usedSlots, protectedSet
 
 	local cur = container:GetItemInSlot(targetslot)
 	local old = (cur ~= nil and cur ~= item) and container:RemoveItemBySlot(targetslot) or nil
+	if TUNING.HELPER_DEBUG_SWITCH then
+		HelperDebug("放入融合勋章[%s] 格%d: %s%s", fusion.prefab, targetslot, tostring(medal.prefab),
+			old ~= nil and (" (挤出 " .. tostring(old.prefab) .. ")") or "")
+	end
 
 	if not container:GiveItem(item, targetslot, nil, false) then
 		player.components.inventory:GiveItem(item)
