@@ -65,3 +65,5 @@ if oldBufferedActionDo ~= nil then
 			oldBufferedActionDo, self, ...)
 	end
 end
+
+GLOBAL.RunWithEquipAlign = RunAlignWindow--供 helper_autoequip 的动作fn层捕获复用(按钮直接执行路径)

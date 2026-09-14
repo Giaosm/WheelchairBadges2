@@ -62,6 +62,32 @@ for group, groupCfg in pairs(AUTO_EQUIP_ACTIONS) do
 	end
 end
 
+--------------------------------动作fn层捕获--------------------------------
+--部分动作是"按钮直接执行"(如红晶锅烹饪 BufferedAction:Do())，不经 actionqueued/PushAction/DoAction。
+--给已配置动作的 fn 包一层：任何执行路径都先换装再跑原函数(红晶锅整组烹饪资格 CanStackCook 就在 fn 里判定)。
+local function InstallActionFnHook()
+	for action_id in pairs(ACTION_TO_GROUP) do
+		local action = ACTIONS[action_id]
+		local old_fn = action ~= nil and action.fn or nil
+		if old_fn ~= nil and not action.helper_fn_hooked then
+			action.helper_fn_hooked = true
+			action.fn = function(act, ...)
+				local player = act ~= nil and act.doer or nil
+				local try = player ~= nil and player.helper_autoequip_fn or nil
+				local was = act ~= nil and act.helper_expected_medals or nil
+				if try ~= nil then try(act) end
+				--应佩戴本就已知(前面捕获点已处理)走原函数；本入口才拿到就就地覆盖fn(按钮直接执行路径)
+				if was == nil and act ~= nil and act.helper_expected_medals ~= nil and GLOBAL.RunWithEquipAlign ~= nil then
+					return GLOBAL.RunWithEquipAlign(player, act.helper_expected_medals,
+						act.action ~= nil and act.action.id or nil, "fn", old_fn, act, ...)
+				end
+				return old_fn(act, ...)
+			end
+		end
+	end
+end
+InstallActionFnHook()
+
 AddPlayerPostInit(function(inst)
 	if not GLOBAL.TheNet:GetIsServer() then return end
 
@@ -104,6 +130,8 @@ AddPlayerPostInit(function(inst)
 
 	local function TryAutoEquip(bufferedaction)
 		if bufferedaction == nil or bufferedaction.action == nil or bufferedaction.action.id == nil then return end
+		if bufferedaction.helper_autoequip_done then return end--同一动作只在最早捕获点处理一次
+		bufferedaction.helper_autoequip_done = true
 		LogActionDebug(bufferedaction)
 		if bufferedaction.action.id == "ATTACK" then
 			if GLOBAL.TryAutoRepairJustice ~= nil then
@@ -216,6 +244,8 @@ AddPlayerPostInit(function(inst)
 		end
 		RecordExpected(bufferedaction, expected)
 	end
+
+	inst.helper_autoequip_fn = TryAutoEquip--供动作fn层捕获复用
 
 	inst:ListenForEvent("actionqueued", function(src, data)
 		if data and data.action then TryAutoEquip(data.action) end

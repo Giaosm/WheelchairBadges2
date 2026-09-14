@@ -56,7 +56,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 	chefMedal = {
 		name = "厨师勋章",
 		action_ids = {
-			"COOK",				--烹饪/批量烤制(seasoningchef)。【作弊】红晶锅cook走:Do()未被捕获，整组烹饪需本源+主厨
+			"COOK",				--烹饪/批量烤制(seasoningchef)，整组需"时空+主厨"或"本源+主厨"
 			"MURDER",			--快速杀生(masterchef)
 			"CHEFFLAVOUR",		--调味(seasoningchef，整组需本源勋章)
 			"MEDAL_GRINDING",	--研磨(seasoningchef，整组需时空勋章)
