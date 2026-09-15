@@ -1,39 +1,48 @@
 --==============================================================================
 -- 注意：以下注释是字段说明文档，请勿简化！(该文件为纯数据配置，需要完整列出可填字段)
 -- 自动装备：触发动作配置(纯数据)，新增勋章组只改这里，无需动 helper_autoequip.lua
--- 结构：key=勋章组名(见helper_autoequip_rules.lua)
---      value = {
---        action_ids     = { "CHOP", ... },      -- [可选]无条件动作列表：执行即触发，可不填
---          --特殊动作(非ACTIONS动作，命中走独立监听，见helper_autoequip.lua的SPECIAL_ACTIONS)：
---          --  "REINCARNATION"                  -- 致命伤时空守护：玩家濒死时自动装备本源+该组本源加成勋章(需耐久≥REINCARNATION_CONSUME)，触发能力勋章轮回保命
---        action_targets = {                     -- [可选]带条件动作：动作 → 目标条件，可不填
---          --排除字段(命中任一即不触发，优先于所有"要求"字段)：
---          动作 = { exclude_tags     = { "a" } },          -- 目标带"任一"指定标签则排除
---          动作 = { exclude_all_tags = { "a" } },          -- 目标带"全部"指定标签才排除
---          动作 = { exclude_prefabs  = { "a" } },          -- 目标为指定预制件则排除
---          --要求字段(组合时须同时满足)：
---          动作 = { tags           = { "tree", "stump" } },  -- 目标带"任一"指定标签即满足；支持"prefab:xxx"前缀匹配目标prefab(与标签为"或"关系)
---          动作 = { all_tags       = { "tag" } },            -- 目标必须带"全部"指定标签才满足
---          动作 = { prefabs        = { "prefab" } },         -- 目标为指定预制件才满足
---          动作 = { has_component  = { "stewer" } },         -- 目标带"任一"指定组件才满足(如锅的stewer)
---          动作 = { props          = { is_oversized = true } }, -- 目标须满足指定属性(如农场作物植株的is_oversized)，值true=须有且为真，false=须无/为假
---          --条件数组("或"关系)：条件可用数组包裹多个子条件表，任一子条件满足即触发。子条件可再嵌套数组
---          动作 = { { all_tags = { "largecreature", "monster" } }, { tags = { "epic" } } },  -- 大型怪物(largecreature+monster) 或 epic 均触发
---          动作 = { hand_tags      = { "deployedfarmplant" } }, -- 手持物品(invobject)带"任一"指定标签即整体通过(与目标条件为"或"关系，常用于DEPLOY种下种子)
---          动作 = { season_fish    = { prefab="season" } },      -- [必要条件]玩家周围献祭范围(BOOK_SACRIFICE_RADIUS)有指定季节鱼(地上实体)且当前季节≠对应季节才可触发(换季献祭需勋章)，未命中则return false(与目标prefabs判断为"与"关系)
---          动作 = { slingshot_ammo = { "ammo" } },               -- [必要条件]手持弹弓当前装的弹药是"任一"指定prefab才触发(如沙刺弹medalslingshotammo_sandspike)；支持"tag:xxx"前缀匹配弹药物品标签
---          动作 = { actor_prefabs  = { "warly" } },              -- [必要条件]执行动作的玩家prefab是"任一"指定才触发(如厨师组吃料理只在沃利时自动装备)，未命中则return false(与目标条件为"与"关系)
---          动作 = { recipe_builder_tag = { "seasoningchef" } }, -- 制作配方的builder_tag命中才触发(区分勋章专属配方，如BUILD)
---          动作 = { exclude_recipe_props = { "builder_tag" } }, -- 制作配方带指定属性(如builder_tag)则排除(其他勋章专属)
---          动作 = { keep_recipe_builder_tag = { "handyperson" } }, -- 被exclude_recipe_props排除时，builder_tag命中此列表的保留(自己的专属配方)
---          -- 多个条件字段可组合，组合时同时满足才触发(各自内部按其规则判定)
---        }
---      }
+-- 结构：key = 勋章组名(见 helper_autoequip_rules.lua)
+--   value = {
+--     action_ids     = { "CHOP", ... },      -- [可选]无条件动作列表：执行即触发，可不填
+--       --特殊动作(非ACTIONS动作，命中走独立监听，见 helper_autoequip.lua 的 SPECIAL_ACTIONS)：
+--       --  "REINCARNATION"                  -- 致命伤时空守护：玩家濒死时自动装备本源+该组本源加成勋章(需耐久≥REINCARNATION_CONSUME)，触发能力勋章轮回保命
+--     action_targets = {                     -- [可选]带条件动作：动作 → 条件，可不填
+--
+--       --==== 条件的三种写法 ====--
+--       动作 = { 字段 = 值, ... }                -- ①条件表(最常用)：多个字段为"与"关系，须同时满足
+--       动作 = { { 字段 = 值 }, { 字段 = 值 } }  -- ②条件数组："或"关系，任一子条件表满足即触发(子条件可再嵌套数组)
+--         -- 例：{ { all_tags = { "largecreature", "monster" } }, { tags = { "epic" } } }  -- 大型怪物(同时带largecreature+monster) 或 带epic标签 均触发
+--       动作 = { 勋章prefab = 条件表, ... }      -- ③按勋章分组：同一动作按勋章分别限制，命中哪条子条件就装组内那枚勋章
+--         -- 例：PICK = { transplant_certificate = { tags = { "thorny" } }, plant_certificate = { props = { is_oversized = true } } }
+--
+--       --==== 条件表的可用字段 ====--
+--       --排除字段(命中即不触发，优先于所有"要求"字段)：
+--       exclude_tags     = { "a" },            -- 目标带"任一"指定标签则排除
+--       exclude_all_tags = { "a" },            -- 目标带"全部"指定标签才排除
+--       exclude_prefabs  = { "a" },            -- 目标为指定预制件则排除
+--       --要求字段(须命中才触发；未命中一律return false，故同一条件表内多字段为"与"关系)：
+--       tags           = { "tree", "stump" },  -- 目标带"任一"指定标签即满足；支持"prefab:xxx"前缀匹配目标prefab(与标签为"或"关系)
+--       all_tags       = { "tag" },            -- 目标必须带"全部"指定标签才满足
+--       prefabs        = { "prefab" },         -- 目标为指定预制件才满足
+--       has_component  = { "stewer" },         -- 目标带"任一"指定组件才满足(如锅的stewer)
+--       props          = { is_oversized = true }, -- 目标须满足指定属性(如农场作物植株的is_oversized)：true=须有且为真，false=须无/为假
+--       hand_tags      = { "deployedfarmplant" }, -- 手持物(invobject)带"任一"指定标签才满足(用于DEPLOY区分"种种子"与"部署设备"等)
+--       actor_prefabs  = { "warly" },          -- 执行动作的玩家prefab是"任一"指定才满足(如厨师组吃料理只在沃利时自动装备)
+--       slingshot_ammo = { "ammo" },           -- 手持弹弓当前装的弹药是"任一"指定prefab才满足(如沙刺弹medalslingshotammo_sandspike)；支持"tag:xxx"前缀匹配弹药物品标签
+--       season_fish    = { prefab = "season" }, -- 玩家周围献祭范围(BOOK_SACRIFICE_RADIUS)内有指定季节鱼(地上实体)且当前季节≠对应季节才满足(换季献祭需勋章)
+--       --配方字段(判定对象是制作配方 bufferedaction.recipe，用于BUILD等)：
+--       recipe_builder_tag      = { "seasoningchef" }, -- 配方的builder_tag命中才满足(区分勋章专属配方，如BUILD)
+--       exclude_recipe_props    = { "builder_tag" },   -- 配方带"任一"指定属性(如builder_tag)则排除(其他勋章专属)
+--       keep_recipe_builder_tag = { "handyperson" },   -- 被exclude_recipe_props排除时，builder_tag命中此列表的保留(自己的专属配方)
+--
+--       --==== 值的写法 ====--
+--       名单类字段一律用表，单个也要带花括号(如 hand_tags = { "a" })；props / season_fish 用映射(键=值)；
+--       字段内多个候选值为"或"(命中任一即满足)，同一条件表内多个字段为"与"(须同时满足)
+--     }
+--   }
 -- 说明：
 --   - 一个勋章组可同时有 action_ids(无条件) 和 action_targets(带条件)，也可只有其一
 --   - 任一动作执行时，只会从该动作所属的勋章组里挑选最高级勋章装备，不会跨组误装
---   - 同一动作要"按勋章分别限制"时，可用"按勋章分组"写法：动作 = { 勋章prefab = 条件表, ... }，
---     命中对应子条件则装组内该枚勋章(如 PICK = { transplant_certificate = {tags={"thorny"}}, plant_certificate = {props={is_oversized=true}} })
 --   - 特殊动作(致命伤等)写进 action_ids 即可，无需在 action_targets 配置；该组勋章须在本源加成名单(helper_autoequip_rules.lua 的 ORIGIN_MEDAL_BONUS)才参与保命
 --==============================================================================
 HelperRules_AUTO_EQUIP_ACTIONS = {

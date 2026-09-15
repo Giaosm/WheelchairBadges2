@@ -277,14 +277,16 @@ local function MatchActionTarget(bufferedaction, cond)
 		end
 	end
 
-	--hand_tags：手持物带任一指定标签即通过
+	--hand_tags：手持物(invobject)须带"任一"指定标签，未命中则return false(与目标条件为"与"关系)
 	if cond.hand_tags and #cond.hand_tags > 0 then
 		local handobj = bufferedaction.invobject
+		local hit = false
 		if handobj ~= nil then
 			for _, tag in ipairs(cond.hand_tags) do
-				if handobj:HasTag(tag) then return true end
+				if handobj:HasTag(tag) then hit = true break end
 			end
 		end
+		if not hit then return false end
 	end
 
 	--season_fish：范围内有季节鱼且季节不符才可触发
