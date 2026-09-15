@@ -13,8 +13,13 @@ AddModRPCHandler(RPC_NAMESPACE, "SyncGroupEnabled", function(player, settings_js
 	if player == nil or player.components == nil or type(settings_json) ~= "string" then return end
 	local ok, cfg = pcall(GLOBAL.json.decode, settings_json)
 	if not ok or type(cfg) ~= "table" then return end
-	player.medal_group_enabled = cfg
-	GLOBAL.RefreshPlayerMedalTags(player)
+	--仅保留"字符串键 + boolean值"的项：各组开关只认 true/false，客户端传来的表可能含任意键值
+	local result = {}
+	for group, v in pairs(cfg) do
+		if type(group) == "string" and type(v) == "boolean" then result[group] = v end
+	end
+	player.medal_group_enabled = result
+	if GLOBAL.RefreshPlayerMedalTags ~= nil then GLOBAL.RefreshPlayerMedalTags(player) end
 end)
 
 --客户端：全量发送组开关配置

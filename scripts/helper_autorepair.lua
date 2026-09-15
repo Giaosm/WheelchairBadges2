@@ -8,7 +8,7 @@ local AUTOREPAIR_MEDALS = {
 	justice_certificate = true,--正义(补正义值)
 }
 --正义勋章补充目标：索引1起，value对齐能力勋章消耗(consume)；本源勋章减耗×0.4，凋零之蜂防控制固定5不看本源；"智能"按攻击目标动态算
-JUSTICE_TARGETS = {
+local JUSTICE_TARGETS = {
 	{ name = "坎普斯",     prefab = "krampus",              value = 5  },
 	{ name = "复仇坎普斯", prefab = "medal_naughty_krampus", value = 5  },
 	{ name = "克劳斯",     prefab = "klaus",                value = 50 },
@@ -26,11 +26,11 @@ JUSTICE_TARGETS = {
 	{ name = "智能",       smart = true },
 }
 --prefab→所需正义值映射(智能模式用)，排除凋零之蜂/暗影生物(特殊处理)
-JUSTICE_PREFAB_VALUE = {}
+local JUSTICE_PREFAB_VALUE = {}
 for _, t in ipairs(JUSTICE_TARGETS) do
 	if t.prefab and not t.smart then JUSTICE_PREFAB_VALUE[t.prefab] = t.value end
 end
-JUSTICE_SMART_INDEX = #JUSTICE_TARGETS--智能项索引
+local JUSTICE_SMART_INDEX = #JUSTICE_TARGETS--智能项索引
 
 --官方常量：从能力勋章环境读取，避免官方调值后本模组算错(1.6.8.0 把 GIFT_VALUE_MULT 由 5 改为 2)
 local JUSTICE_TUNING = (GLOBAL.MedalAPI and GLOBAL.MedalAPI.TUNING_MEDAL
@@ -72,68 +72,27 @@ local function IsMedalInUse(player, medal)
 	return false
 end
 
---递归找玩家拥有的某prefab物品(物品栏+装备槽+容器+手持)，防循环
+--递归找玩家拥有的某prefab物品(物品栏+装备槽+容器+手持)，防循环。遍历走公共实现(helper_globalfn.lua)
 local function FindPlayerItem(player, prefab)
-	if player == nil then return nil end
-	local inv = player.components and player.components.inventory
-	if inv == nil then return nil end
-	local visited = {}
-	local function scan(item, depth)
-		if item == nil or depth >= 10 then return nil end
-		if item.prefab == prefab then return item end
-		local c = item.components and item.components.container
-		if c and c.slots then
-			if visited[item.GUID] then return nil end
-			visited[item.GUID] = true
-			for _, subitem in pairs(c.slots) do
-				local found = scan(subitem, depth + 1)
-				if found ~= nil then return found end
-			end
+	local found
+	GLOBAL.TraversePlayerItems(player, function(item)
+		if item.prefab == prefab then
+			found = item
+			return true
 		end
-		return nil
-	end
-	for _, item in pairs(inv.itemslots or {}) do
-		local found = scan(item, 1)
-		if found ~= nil then return found end
-	end
-	for _, item in pairs(inv.equipslots or {}) do
-		local found = scan(item, 1)
-		if found ~= nil then return found end
-	end
-	local handitem = inv:GetEquippedItem(GLOBAL.EQUIPSLOTS and GLOBAL.EQUIPSLOTS.HANDS or "hands")
-	if handitem ~= nil then
-		local found = scan(handitem, 1)
-		if found ~= nil then return found end
-	end
-	return nil
+	end, { max_depth = 10 })
+	return found
 end
 
 --找玩家当前在用的指定prefab勋章(直接佩戴或在已装备融合勋章内)。多个勋章时只看在用的那个，避免补到背包里不需要补的
 local function FindInUseMedal(player, prefab)
-	if player == nil then return nil end
-	local inv = player.components and player.components.inventory
-	if inv == nil then return nil end
-	local visited = {}
 	local found
-	local function scan(item, depth)
-		if item == nil or depth >= 10 or found ~= nil then return end
+	GLOBAL.TraversePlayerItems(player, function(item)
 		if item.prefab == prefab and IsMedalInUse(player, item) then
 			found = item
-			return
+			return true
 		end
-		local c = item.components and item.components.container
-		if c and c.slots then
-			if visited[item.GUID] then return end
-			visited[item.GUID] = true
-			for _, subitem in pairs(c.slots) do
-				scan(subitem, depth + 1)
-			end
-		end
-	end
-	for _, item in pairs(inv.itemslots or {}) do scan(item, 1) end
-	for _, item in pairs(inv.equipslots or {}) do scan(item, 1) end
-	local handitem = inv:GetEquippedItem(GLOBAL.EQUIPSLOTS and GLOBAL.EQUIPSLOTS.HANDS or "hands")
-	if handitem ~= nil then scan(handitem, 1) end
+	end, { max_depth = 10 })
 	return found
 end
 
@@ -201,15 +160,8 @@ local function TryAutoRepair(player, medal, target)
 	end
 end
 
---反查勋章所在玩家(GetGrandOwner沿owner链向上，含融合勋章)
-local function GetOwnerPlayer(inst)
-	if inst == nil then return nil end
-	local ii = inst.components and inst.components.inventoryitem
-	if ii == nil then return nil end
-	local owner = ii:GetGrandOwner()
-	if owner ~= nil and owner:HasTag("player") then return owner end
-	return nil
-end
+--反查勋章所在玩家(公共实现，见 helper_globalfn.lua 的 GetItemPlayerOwner)
+local GetOwnerPlayer = GLOBAL.GetItemPlayerOwner
 
 --补耐久公共入口(合法性/冷却判断)，普通勋章由percentusedchange触发，正义勋章由helper_autoequip在ATTACK动作时调用
 local function DoAutoRepair(player, medal, target)
@@ -239,5 +191,4 @@ end
 
 GLOBAL.AUTOREPAIR_MEDALS = AUTOREPAIR_MEDALS
 GLOBAL.JUSTICE_TARGETS = JUSTICE_TARGETS
-GLOBAL.JUSTICE_PREFAB_VALUE = JUSTICE_PREFAB_VALUE
 GLOBAL.JUSTICE_SMART_INDEX = JUSTICE_SMART_INDEX

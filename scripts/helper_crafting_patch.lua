@@ -115,6 +115,10 @@ env.AddPrefabPostInit("world", function(world)
 			ActivePinBar:RefreshPinnedRecipes()
 		end
 	end)
+	--退世界时放掉模块级引用：pinbar.owner 是玩家实体(官方与其HUD互相引用)，不清会连带压住上一局的玩家与HUD
+	world:ListenForEvent("onremove", function()
+		ActivePinBar = nil
+	end)
 end)
 
 env.AddClassPostConstruct("widgets/redux/craftingmenu_hud", CraftingMenuHudPatch)

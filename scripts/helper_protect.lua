@@ -4,32 +4,13 @@
 --新增保护勋章只需在配置里加一项并写 env 判定，无需改本文件。
 local PROTECT_MEDALS = HelperRules_AUTO_EQUIP.PROTECT_MEDALS
 
-local PROTECT_MAP = {}--勋章prefab→是否受保护
 local PROTECT_ENV = {}--勋章prefab→环境判定函数
 for prefab, cfg in pairs(PROTECT_MEDALS or {}) do
-	PROTECT_MAP[prefab] = true
 	PROTECT_ENV[prefab] = cfg and cfg.env
 end
 
---取勋章真实prefab(复制勋章返回印刻对象)
-local function RealPrefab(medal)
-	if medal == nil then return nil end
-	return (medal.prefab == "copy_blank_certificate" and medal.medalname) or medal.prefab
-end
-
---某勋章是否登记为受保护勋章(不限当前环境)
-local function IsProtectedMedal(medal)
-	local prefab = RealPrefab(medal)
-	return prefab ~= nil and PROTECT_MAP[prefab] ~= nil
-end
-
---某勋章在当前环境下是否受保护
-local function IsMedalProtectedNow(medal, player)
-	local prefab = RealPrefab(medal)
-	if prefab == nil then return false end
-	local env = PROTECT_ENV[prefab]
-	return env ~= nil and env(player)
-end
+--取勋章真实prefab(复制勋章返回印刻对象)：复用 helper_globalfn.lua 的公共实现
+local RealPrefab = GLOBAL.GetMedalRealPrefab
 
 --玩家当前受保护的勋章prefab集合；返回 { [prefab]=true, ... }(可为空表)
 --包括：环境判定的保护勋章(PROTECT_ENV) + 玩家自定义强制保留勋章(medal_forced_keep，恒保护，由UI通过RPC同步)
@@ -50,9 +31,7 @@ end
 --玩家勋章槽当前佩戴的、且在受保护集合中的勋章；无则nil。protectedSet由ComputeProtectedSet生成
 local function GetEquippedProtectedMedal(player, protectedSet)
 	if protectedSet == nil or next(protectedSet) == nil then return nil end
-	local inv = player and player.components and player.components.inventory
-	if inv == nil then return nil end
-	local eq = inv:GetEquippedItem(GLOBAL.EQUIPSLOTS.MEDAL or GLOBAL.EQUIPSLOTS.NECK or GLOBAL.EQUIPSLOTS.BODY)
+	local eq = GLOBAL.GetMedalSlotItem(player)--勋章槽那件(公共实现，见 helper_globalfn.lua)
 	if eq ~= nil then
 		local prefab = RealPrefab(eq)
 		if prefab ~= nil and protectedSet[prefab] ~= nil then
@@ -62,7 +41,5 @@ local function GetEquippedProtectedMedal(player, protectedSet)
 	return nil
 end
 
-GLOBAL.IsProtectedMedal = IsProtectedMedal
-GLOBAL.IsMedalProtectedNow = IsMedalProtectedNow
 GLOBAL.ComputeProtectedSet = ComputeProtectedSet
 GLOBAL.GetEquippedProtectedMedal = GetEquippedProtectedMedal

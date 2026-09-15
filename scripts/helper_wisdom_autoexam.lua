@@ -90,44 +90,43 @@ end
 
 --容器收到蒙昧勋章时启动自动答题
 local function ListenAutoExamContainers(player)
-	local inv = player.components and player.components.inventory
-	if inv == nil then return end
-	local scanned = {}
-	local function scanContainer(item)
-		if item == nil or scanned[item.GUID] then return end
-		scanned[item.GUID] = true
+	--沿用原行为：不含手持、深度不限(GUID去重已防循环)；遍历走公共实现(helper_globalfn.lua)
+	GLOBAL.TraversePlayerItems(player, function(item)
 		local c = item.components and item.components.container
-		if c then
-			if not item.helper_autoexam_listened then
-				item.helper_autoexam_listened = true
-				item:ListenForEvent("itemget", function(_, data)
-					local got = data and data.item
-					--装进蒙昧勋章且已生效(所在融合勋章已装备)才启动
-					if got ~= nil and got.prefab == "wisdom_test_certificate" then
-						local inv = player.components and player.components.inventory
-						if inv ~= nil and inv.EquipMedalWithName and inv:EquipMedalWithName("wisdom_test_certificate") ~= nil then
-							StartAutoExam(player)
-						end
-					end
-				end)
-			end
-			if c.slots then
-				for _, subitem in pairs(c.slots) do
-					scanContainer(subitem)
+		if c == nil or item.helper_autoexam_listened then return end
+		item.helper_autoexam_listened = true
+		item:ListenForEvent("itemget", function(_, data)
+			local got = data and data.item
+			--装进蒙昧勋章且已生效(所在融合勋章已装备)才启动；持有者现读(物品可能已换手)
+			if got ~= nil and got.prefab == "wisdom_test_certificate" then
+				local holder = GLOBAL.GetItemPlayerOwner(item)
+				--注意 or nil：holder 为 nil 时 "and 链"的求值结果是 false，不是 nil，会绕过下面的 ~= nil 判断
+				local inv = holder ~= nil and holder.components and holder.components.inventory or nil
+				if inv ~= nil and inv.EquipMedalWithName and inv:EquipMedalWithName("wisdom_test_certificate") ~= nil then
+					StartAutoExam(holder)
 				end
 			end
-		end
-	end
-	for _, item in pairs(inv.itemslots or {}) do scanContainer(item) end
-	for _, item in pairs(inv.equipslots or {}) do scanContainer(item) end
+		end)
+	end, { include_hand = false })
 end
 
 AddPlayerPostInit(function(player)
 	if TheWorld ~= nil and not TheWorld.ismastersim then return end
 	player:ListenForEvent("equip", function(_, data)
-		if data ~= nil and data.item ~= nil
-			and (data.item.prefab == "wisdom_test_certificate" or data.item.prefab == "xinhua_dictionary") then
+		if data == nil or data.item == nil then return end
+		if data.item.prefab == "wisdom_test_certificate" or data.item.prefab == "xinhua_dictionary" then
 			StartAutoExam(player)
+			return
+		end
+		--装备融合勋章：①补挂容器监听(融合勋章常是进世界之后才拿到的，之前没人给它挂过)
+		--              ②它里面已装着蒙昧勋章时同样启动(EquipMedalWithName 会查融合勋章内部)
+		if data.item:HasTag("multivariate_certificate") then
+			ListenAutoExamContainers(player)
+			local inv = player.components and player.components.inventory
+			if inv ~= nil and inv.EquipMedalWithName ~= nil
+				and inv:EquipMedalWithName("wisdom_test_certificate") ~= nil then
+				StartAutoExam(player)
+			end
 		end
 	end)
 	local function TryStop()

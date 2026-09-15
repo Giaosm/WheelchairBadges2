@@ -4,6 +4,7 @@ local AUTO_EQUIP_RULES = HelperRules_AUTO_EQUIP
 local COPY_PENALTY = 0.5
 local ORIGIN_BONUS_BOOST = 0.1
 local LOW_DURATION_PREFERRED = { arrest_certificate = true }
+local GetRealPrefab = GLOBAL.GetMedalRealPrefab--取真名(复制勋章→印刻对象)，定义见 helper_globalfn.lua
 
 --------------------------------数据预处理--------------------------------
 local MEDAL_LEVELS = {}
@@ -26,9 +27,7 @@ local CROSS_GROUP_PRIORITY = AUTO_EQUIP_RULES.CROSS_GROUP_PRIORITY or {}
 
 --------------------------------工具--------------------------------
 local function GetEquippedMedal(player)
-	local inv = player and player.components and player.components.inventory
-	if inv == nil then return nil end
-	return inv:GetEquippedItem(EQUIPSLOTS.MEDAL or EQUIPSLOTS.NECK or EQUIPSLOTS.BODY)
+	return GLOBAL.GetMedalSlotItem(player)--勋章槽那件，定义见 helper_globalfn.lua
 end
 
 local function IsHeldBy(medal, carrier)
@@ -42,9 +41,12 @@ local function GetGroupScore(item, group)
 	local prefab = item.prefab
 	local level = MEDAL_LEVELS[prefab]
 	local effective_prefab = prefab
-	if level == nil and prefab == "copy_blank_certificate" and MEDAL_LEVELS[item.medalname] ~= nil and MEDAL_GROUP[item.medalname] == group then
-		level = MEDAL_LEVELS[item.medalname] - COPY_PENALTY
-		effective_prefab = item.medalname
+	if level == nil then
+		local real = GetRealPrefab(item)--复制勋章按其印刻对象计分(须同组)
+		if real ~= prefab and MEDAL_LEVELS[real] ~= nil and MEDAL_GROUP[real] == group then
+			level = MEDAL_LEVELS[real] - COPY_PENALTY
+			effective_prefab = real
+		end
 	end
 	if level == nil or MEDAL_GROUP[effective_prefab] ~= group then return nil end
 	if ORIGIN_BONUS_MAP[effective_prefab] then level = level + ORIGIN_BONUS_BOOST end
@@ -75,17 +77,16 @@ local function PreferLowerDuration(item, best)
 	return false
 end
 
-local function FindBestGroupMedal(player, group, preferredFusion)
-	local best, bestScore, bestInPreferred = nil, nil, false
+--组内最优勋章(按GetGroupScore)；同分时低耐久偏好勋章优先(见PreferLowerDuration)
+local function FindBestGroupMedal(player, group)
+	local best, bestScore = nil, nil
 	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
 		local score = GetGroupScore(item, group)
 		if score ~= nil then
-			local inPreferred = preferredFusion ~= nil and IsHeldBy(item, preferredFusion)
 			if best == nil
 				or score > bestScore
-				or (score == bestScore and inPreferred and not bestInPreferred)
-				or (score == bestScore and not inPreferred and not bestInPreferred and PreferLowerDuration(item, best)) then
-				best, bestScore, bestInPreferred = item, score, inPreferred
+				or (score == bestScore and PreferLowerDuration(item, best)) then
+				best, bestScore = item, score
 			end
 		end
 	end
@@ -99,7 +100,7 @@ local function FindSpecificMedal(player, group, prefab, preferredFusion)
 	local low_dur_pref = LOW_DURATION_PREFERRED[prefab]
 	local fallback, fallback_low = nil, nil
 	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
-		local eff = (item.prefab == "copy_blank_certificate" and item.medalname) or item.prefab
+		local eff = GetRealPrefab(item)
 		if eff == prefab and MEDAL_GROUP[eff] == group then
 			if preferredFusion ~= nil and IsHeldBy(item, preferredFusion) then
 				return item--已在最优融合勋章内，直接返回避免换装
@@ -116,21 +117,19 @@ local function FindSpecificMedal(player, group, prefab, preferredFusion)
 	return fallback
 end
 
---最优融合勋章：等级高者优先 > 同分含目标勋章者优先 > 同分保持当前装备者(避免同等级融合勋章来回换装)。本源勋章(origin_certificate)为最高级融合勋章(level4)，有它时自然被选中当容器
-local function FindBestFusionMedal(player, bestMedal)
+--最优融合勋章：等级高者优先 > 同分保持当前装备者(避免同等级融合勋章来回换装)。本源勋章(origin_certificate)为最高级融合勋章(level4)，有它时自然被选中当容器
+local function FindBestFusionMedal(player)
 	local cur = GetEquippedMedal(player)--当前已装备的融合勋章(同分时优先保持)
-	local best, bestLevel, bestHasTarget, bestIsCur = nil, 0, false, false
+	local best, bestLevel, bestIsCur = nil, 0, false
 	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
 		local lvl = FUSION_LEVELS[item.prefab]
 		if lvl ~= nil then
-			local hasTarget = bestMedal ~= nil and IsHeldBy(bestMedal, item)
 			local isCur = (item == cur)
 			local better = best == nil
 				or lvl > bestLevel
-				or (lvl == bestLevel and hasTarget and not bestHasTarget)
-				or (lvl == bestLevel and hasTarget == bestHasTarget and isCur and not bestIsCur)
+				or (lvl == bestLevel and isCur and not bestIsCur)
 			if better then
-				best, bestLevel, bestHasTarget, bestIsCur = item, lvl, hasTarget, isCur
+				best, bestLevel, bestIsCur = item, lvl, isCur
 			end
 		end
 	end
@@ -139,7 +138,7 @@ end
 
 local function IsInProtectedSet(item, protectedSet)
 	if item == nil or protectedSet == nil then return false end
-	local prefab = (item.prefab == "copy_blank_certificate" and item.medalname) or item.prefab
+	local prefab = GetRealPrefab(item)
 	return protectedSet[prefab] ~= nil
 end
 
@@ -411,20 +410,15 @@ end
 local util = {}
 util.MEDAL_LEVELS = MEDAL_LEVELS
 util.MEDAL_GROUP = MEDAL_GROUP
-util.FUSION_LEVELS = FUSION_LEVELS
 util.ORIGIN_BONUS_MAP = ORIGIN_BONUS_MAP
 util.CROSS_GROUP_PRIORITY = CROSS_GROUP_PRIORITY
 util.GetEquippedMedal = GetEquippedMedal
 util.IsHeldBy = IsHeldBy
-util.GetGroupScore = GetGroupScore
 util.GetOriginMedal = GetOriginMedal
 util.FindAnyFusion = FindAnyFusion
-util.PreferLowerDuration = PreferLowerDuration
 util.FindBestGroupMedal = FindBestGroupMedal
 util.FindSpecificMedal = FindSpecificMedal
 util.FindBestFusionMedal = FindBestFusionMedal
-util.IsInProtectedSet = IsInProtectedSet
-util.FindFusionSlot = FindFusionSlot
 util.PutMedalIntoFusion = PutMedalIntoFusion
 util.MatchActionTarget = MatchActionTarget
 GLOBAL.AutoEquipUtil = util

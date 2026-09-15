@@ -174,7 +174,7 @@ local function GetGroupSpec(g, cfg)
 end
 
 --统一创建组选择器：左右循环箭头(点击在values里循环)，spec来自GetGroupSpec。返回btn_off,btn_on
-local function MakeCycler(self, cfg, spec, x, y)
+local function MakeCycler(self, spec, x, y)
 	local function Step(dir)
 		local cur = spec.read()
 		local idx = 1
@@ -183,20 +183,16 @@ local function MakeCycler(self, cfg, spec, x, y)
 		if idx < 1 then idx = #spec.values end
 		if idx > #spec.values then idx = 1 end
 		spec.write(spec.values[idx])
-		self:UpdateButtons(cfg)
+		self:UpdateButtons()
 	end
 	local btn_off = MakeSpinnerArrow(self, self.root, -1, x - 40, y, Step)
 	local btn_on = MakeSpinnerArrow(self, self.root, 1, x + 10, y, Step)
 	return btn_off, btn_on
 end
 
-local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
-	GLOBAL_Screen._ctor(self, "MedalUIScreen")
-	self.medal_ui_active = true
-
-	local cfg = GetStoredConfig()
-
-	--暗色背景(点击关闭)
+--==== 两个面板(MedalUIScreen / ForcedKeepUIScreen)共用的UI骨架 ====--
+--暗色背景(点击关闭)
+local function AddDarkBackdrop(self)
 	self.black = self:AddChild(GLOBAL_ImageButton("images/global.xml", "square.tex"))
 	self.black.image:SetVRegPoint(GLOBAL.ANCHOR_MIDDLE)
 	self.black.image:SetHRegPoint(GLOBAL.ANCHOR_MIDDLE)
@@ -206,12 +202,48 @@ local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 	self.black.image:SetTint(0, 0, 0, 0.6)
 	self.black:SetOnClick(function() self:Close() end)
 	self.black:SetHelpTextMessage("")
-
-	--主面板
+end
+--主面板root(居中、按比例缩放)
+local function AddScreenRoot(self)
 	self.root = self:AddChild(GLOBAL_Widget("ROOT"))
 	self.root:SetVAnchor(GLOBAL.ANCHOR_MIDDLE)
 	self.root:SetHAnchor(GLOBAL.ANCHOR_MIDDLE)
 	self.root:SetScaleMode(GLOBAL.SCALEMODE_PROPORTIONAL)
+end
+--取消键/ESC关闭
+local function ScreenOnControl(self, control, down)
+	if self._base.OnControl(self, control, down) then return true end
+	if not down and control == GLOBAL.CONTROL_CANCEL then
+		self:Close()
+		return true
+	end
+	return false
+end
+--关闭：出栈(PopScreen 内部会调 OnDestroy，暂停统一在 OnDestroy 释放，见 ScreenOnDestroy)
+local function ScreenClose(self)
+	TheFrontEnd:PopScreen(self)
+end
+--销毁：释放暂停 + 交回基类(Kill)。Close→PopScreen 与 FrontEnd:ClearScreens 两条路都会走到 OnDestroy，
+--只在这里释放才不会漏减计数；helper_pause_held 保证"取一次、放一次"
+local function ScreenOnDestroy(self)
+	if self.helper_pause_held then
+		self.helper_pause_held = nil
+		GLOBAL.SetAutopaused(false)
+	end
+	self._base.OnDestroy(self)
+end
+
+local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
+	GLOBAL_Screen._ctor(self, "MedalUIScreen")
+	self.medal_ui_active = true
+
+	local cfg = GetStoredConfig()
+
+	--暗色背景(点击关闭)
+	AddDarkBackdrop(self)
+
+	--主面板
+	AddScreenRoot(self)
 
 	self.bg = self.root:AddChild(GLOBAL_Image("images/skilltree.xml", "wilson_background_text.tex"))
 	self.bg:ScaleToSize(1000, 700)
@@ -245,7 +277,7 @@ local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 	self.forcedkeep_btn:SetText("强制保留")
 	self.forcedkeep_btn:SetTextColour(0, 0, 0, 1)
 	self.forcedkeep_btn:SetOnClick(function()
-		GLOBAL.OpenForcedKeepUI(self)
+		GLOBAL.OpenForcedKeepUI()
 	end)
 
 	--每个勋章组：名字 + 左箭头(关) + 状态 + 右箭头(开)，网格排布
@@ -274,26 +306,22 @@ local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 		local spec = GetGroupSpec(g, cfg)
 		state.spec = spec--供UpdateButtons刷新状态文字
 		state:SetString(spec.text(spec.read()))
-		local btn_off, btn_on = MakeCycler(self, cfg, spec, x, y)
+		local btn_off, btn_on = MakeCycler(self, spec, x, y)
 
 		self.buttons[idx] = { g = g, btn_off = btn_off, btn_on = btn_on, name = name, state = state }
 	end
 
-	self:UpdateButtons(cfg)
+	self:UpdateButtons()
 
+	self.helper_pause_held = true
 	GLOBAL.SetAutopaused(true)
 end)
 
 function MedalUIScreen:OnControl(control, down)
-	if MedalUIScreen._base.OnControl(self, control, down) then return true end
-	if not down and control == GLOBAL.CONTROL_CANCEL then
-		self:Close()
-		return true
-	end
-	return false
+	return ScreenOnControl(self, control, down)
 end
 
-function MedalUIScreen:UpdateButtons(cfg)
+function MedalUIScreen:UpdateButtons()
 	for _, item in ipairs(self.buttons) do
 		local spec = item.state.spec
 		if spec ~= nil then
@@ -312,8 +340,11 @@ function MedalUIScreen:UpdateButtons(cfg)
 end
 
 function MedalUIScreen:Close()
-	GLOBAL.SetAutopaused(false)
-	TheFrontEnd:PopScreen(self)
+	ScreenClose(self)
+end
+
+function MedalUIScreen:OnDestroy()
+	ScreenOnDestroy(self)
 end
 
 --打字/输入状态检测(参考T键模组)：正在聊天/控制台/搜索栏等输入时不触发快捷键
@@ -439,21 +470,10 @@ local ForcedKeepUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 	local page = 0
 
 	--暗色背景(点击关闭)
-	self.black = self:AddChild(GLOBAL_ImageButton("images/global.xml", "square.tex"))
-	self.black.image:SetVRegPoint(GLOBAL.ANCHOR_MIDDLE)
-	self.black.image:SetHRegPoint(GLOBAL.ANCHOR_MIDDLE)
-	self.black.image:SetVAnchor(GLOBAL.ANCHOR_MIDDLE)
-	self.black.image:SetHAnchor(GLOBAL.ANCHOR_MIDDLE)
-	self.black.image:SetScaleMode(GLOBAL.SCALEMODE_FILLSCREEN)
-	self.black.image:SetTint(0, 0, 0, 0.6)
-	self.black:SetOnClick(function() self:Close() end)
-	self.black:SetHelpTextMessage("")
+	AddDarkBackdrop(self)
 
 	--主面板(backdrop背景)
-	self.root = self:AddChild(GLOBAL_Widget("ROOT"))
-	self.root:SetVAnchor(GLOBAL.ANCHOR_MIDDLE)
-	self.root:SetHAnchor(GLOBAL.ANCHOR_MIDDLE)
-	self.root:SetScaleMode(GLOBAL.SCALEMODE_PROPORTIONAL)
+	AddScreenRoot(self)
 
 	self.bg = self.root:AddChild(GLOBAL_Image("images/plantregistry.xml", "backdrop.tex"))
 	self.bg:ScaleToSize(900, 620)
@@ -634,24 +654,23 @@ local ForcedKeepUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 	UpdateCount()
 	UpdatePageText()
 
+	self.helper_pause_held = true
 	GLOBAL.SetAutopaused(true)
 end)
 
 function ForcedKeepUIScreen:OnControl(control, down)
-	if ForcedKeepUIScreen._base.OnControl(self, control, down) then return true end
-	if not down and control == GLOBAL.CONTROL_CANCEL then
-		self:Close()
-		return true
-	end
-	return false
+	return ScreenOnControl(self, control, down)
 end
 
 function ForcedKeepUIScreen:Close()
-	GLOBAL.SetAutopaused(false)
-	TheFrontEnd:PopScreen(self)
+	ScreenClose(self)
 end
 
-GLOBAL.OpenForcedKeepUI = function(medal_ui)
+function ForcedKeepUIScreen:OnDestroy()
+	ScreenOnDestroy(self)
+end
+
+GLOBAL.OpenForcedKeepUI = function()
 	TheFrontEnd:PushScreen(ForcedKeepUIScreen())
 end
 

@@ -4,6 +4,10 @@
 local AUTO_EQUIP_ACTIONS = HelperRules_AUTO_EQUIP_ACTIONS
 local DECISION_CACHE_TIME = 0.3
 local U = GLOBAL.AutoEquipUtil
+local GetRealPrefab = GLOBAL.GetMedalRealPrefab--取真名(复制勋章→印刻对象)，定义见 helper_globalfn.lua
+--前向声明：AutoEquipMedalForGroup 定义在文件后半(组合装备段)，而 TryAutoEquip 在前半就会调用它。
+--不声明的话 Lua 会把它当全局名解析(靠 mod env 兜底读 GLOBAL)，一旦 GLOBAL 上没有就直接 nil 报错。
+local AutoEquipMedalForGroup
 
 --------------------------------动作映射构建--------------------------------
 local ACTION_TO_GROUP = {}
@@ -20,6 +24,30 @@ for kind in pairs(SPECIAL_ACTIONS) do SPECIAL_ACTION_ENTRIES[kind] = {} end
 local REINCARNATION_CONSUME = (GLOBAL.MedalAPI and GLOBAL.MedalAPI.TUNING_MEDAL
 	and GLOBAL.MedalAPI.TUNING_MEDAL.SPEED_MEDAL
 	and GLOBAL.MedalAPI.TUNING_MEDAL.SPEED_MEDAL.REINCARNATION_CONSUME) or 300
+
+--配置自检(载入时只跑一次，只告警不改行为)：条件表的 key 只允许两种——①条件字段(见 COND_FIELDS)；②"按勋章分组"写法里的勋章prefab。
+--两种都不是时该条目会"静默失效"(不报错也不装勋章)，最常见原因是新增条件字段却漏加进 COND_FIELDS。
+local function ValidateCondKeys(actionName, group, cond, depth)
+	if depth > 4 then return end--条件数组不会这么深，防配置写成自引用表时无限递归
+	for k, v in pairs(cond) do
+		if type(k) == "number" then
+			if type(v) == "table" then ValidateCondKeys(actionName, group, v, depth + 1) end--条件数组("或")：递归子条件
+		elseif COND_FIELDS[k] then
+			--条件字段：其参数表(如 props={is_oversized=true})的key不是条件字段，不递归
+		elseif U.MEDAL_LEVELS[k] ~= nil then
+			--分组写法 动作={勋章prefab=条件表}：须是本组勋章(FindSpecificMedal 按同组判定)
+			if U.MEDAL_GROUP[k] ~= group then
+				HelperDebug("自动装备配置自检: %s 的 %s 指定勋章 %s 不属于本组(属 %s)，该条永不命中",
+					tostring(group), tostring(actionName), tostring(k), tostring(U.MEDAL_GROUP[k]))
+			end
+			if type(v) == "table" then ValidateCondKeys(actionName, group, v, depth + 1) end
+		else
+			HelperDebug("自动装备配置自检: %s 的 %s 里 %s 既不是条件字段也不是本模组勋章prefab"
+				.."(新条件字段请加进 helper_autoequip.lua 的 COND_FIELDS)，该条会静默失效",
+				tostring(group), tostring(actionName), tostring(k))
+		end
+	end
+end
 
 local function AddActionEntry(actionName, group, cond, medal)
 	if SPECIAL_ACTIONS[actionName] then
@@ -43,10 +71,14 @@ for group, groupCfg in pairs(AUTO_EQUIP_ACTIONS) do
 	if groupCfg.action_targets then
 		for actionName, cond in pairs(groupCfg.action_targets) do
 			if type(cond) == "table" then
+				ValidateCondKeys(actionName, group, cond, 1)--自检：漏加COND_FIELDS/勋章名写错时告警
+				--数组写法(cond[1]为子条件表，见配置文件头"条件数组")按条件表处理，不算分组
 				--key全为勋章prefab(不含条件字段)时，每条子条件带medal指定勋章
-				local grouped = true
-				for k in pairs(cond) do
-					if COND_FIELDS[k] then grouped = false break end
+				local grouped = cond[1] == nil
+				if grouped then
+					for k in pairs(cond) do
+						if COND_FIELDS[k] then grouped = false break end
+					end
 				end
 				if grouped and next(cond) ~= nil then
 					for prefab, subcond in pairs(cond) do
@@ -96,6 +128,7 @@ AddPlayerPostInit(function(inst)
 	local ACTION_LOG_TIME = 0.3
 	local ACTION_LOG_MAX = 64
 	local function LogActionDebug(bufferedaction)
+		if not TUNING.HELPER_DEBUG_SWITCH then return end--关调试直接返回(省拼串/GetTime/计数遍历)
 		if bufferedaction == nil or bufferedaction.action == nil or bufferedaction.action.id == nil then return end
 		local target = bufferedaction.target or bufferedaction.invobject
 		local target_prefab = target and target.prefab or "none"
@@ -149,7 +182,7 @@ AddPlayerPostInit(function(inst)
 			if protectedEquipped ~= nil then
 				--玩家手动把某物装备进勋章槽(右击融合勋章/单勋章)时，受保护勋章会被原生换装正常卸到背包，
 				--不要再把它塞进融合勋章并重复装备，否则两次 Equip + 嵌套容器搬运冲突导致勋章丢失
-				local medalSlot = GLOBAL.EQUIPSLOTS.MEDAL or GLOBAL.EQUIPSLOTS.NECK or GLOBAL.EQUIPSLOTS.BODY
+				local medalSlot = GLOBAL.EQUIPSLOT_MEDAL--勋章槽(定义见 helper_globalfn.lua)
 				local equipItem = bufferedaction.invobject or bufferedaction.target
 				local isMedalSlotEquip = bufferedaction.action.id == "EQUIP"
 					and equipItem ~= nil and equipItem.components
@@ -166,24 +199,35 @@ AddPlayerPostInit(function(inst)
 			end
 		end
 
+		--最优融合勋章本动作只求一次：装备的始终是同一枚，装备后重算结果不变；避免每个匹配组各扫一遍全量
+		local action_fusion, action_fusion_ready = nil, false
+		local function GetActionFusion()
+			if not action_fusion_ready then
+				action_fusion_ready = true
+				action_fusion = U.FindBestFusionMedal(inst)
+			end
+			return action_fusion
+		end
+
 		--第一层(组内对比)：每组选组内最优勋章prefab(指定medal，未指定则用FindBestGroupMedal取组内最优)，剔除未持有，每组留一个优胜者
 		local group_best = {}
 		for _, entry in ipairs(entries) do
 			if IsGroupEnabled(inst, entry.group) and U.MatchActionTarget(bufferedaction, entry.cond) then
 				local medal = entry.medal
-				local entry_rank = medal and U.MEDAL_LEVELS[medal] or nil
+				local entry_rank = medal and U.MEDAL_LEVELS[medal]
 				if medal == nil then
 					local best = U.FindBestGroupMedal(inst, entry.group)
 					if best ~= nil then
-						medal = (best.prefab == "copy_blank_certificate" and best.medalname) or best.prefab
+						medal = GetRealPrefab(best)
 						entry_rank = U.MEDAL_LEVELS[medal]
 					end
 				end
-				--剔除未持有/组内无可装勋章
-				if medal ~= nil and U.FindSpecificMedal(inst, entry.group, medal) ~= nil then
+				--剔除未持有/组内无可装勋章(实例一并存下，后续决赛与装备复用，不再重复全量查找)
+				local medal_item = medal ~= nil and U.FindSpecificMedal(inst, entry.group, medal) or nil
+				if medal_item ~= nil then
 					local cur = group_best[entry.group]
 					if cur == nil or (entry_rank ~= nil and (cur.rank == nil or entry_rank > cur.rank)) then
-						group_best[entry.group] = { entry = entry, medal = medal, rank = entry_rank }
+						group_best[entry.group] = { entry = entry, medal = medal, rank = entry_rank, item = medal_item }
 					end
 				end
 			end
@@ -203,9 +247,9 @@ AddPlayerPostInit(function(inst)
 			--收集决赛选手(在跨组优先级表内的组)并按优先级降序
 			local finalists = {}
 			for group, info in pairs(group_best) do
-				local bestMedal = U.FindSpecificMedal(inst, group, info.medal)
+				local bestMedal = info.item--复用第一层已找到的实例
 				if bestMedal ~= nil then
-					local prefab = (bestMedal.prefab == "copy_blank_certificate" and bestMedal.medalname) or bestMedal.prefab
+					local prefab = GetRealPrefab(bestMedal)
 					local prio = cross_priority[prefab]
 					if prio ~= nil then
 						table.insert(finalists, { group = group, info = info, prio = prio })
@@ -220,14 +264,14 @@ AddPlayerPostInit(function(inst)
 				for _, f in ipairs(finalists) do
 					table.insert(expected, f.info.medal)
 				end
-				if U.FindAnyFusion(inst) ~= nil then
+				if GetActionFusion() ~= nil then--"有无融合勋章"与FindAnyFusion判据相同，复用同一次查找
 					for _, f in ipairs(finalists) do
-						AutoEquipMedalForGroup(inst, f.group, bufferedaction, usedSlots, protectedSet, f.info.medal)
+						AutoEquipMedalForGroup(inst, f.group, bufferedaction, usedSlots, protectedSet, f.info.medal, nil, GetActionFusion())
 						--标记已处理勋章不可移走：防后续低优先级勋章把它挤出融合勋章(缓存/已在内提前返回也拦得住)
 						protectedSet[f.info.medal] = true
 					end
 				else
-					AutoEquipMedalForGroup(inst, finalists[1].group, bufferedaction, usedSlots, protectedSet, finalists[1].info.medal)
+					AutoEquipMedalForGroup(inst, finalists[1].group, bufferedaction, usedSlots, protectedSet, finalists[1].info.medal, nil, GetActionFusion())
 				end
 				RecordExpected(bufferedaction, expected)
 				return
@@ -238,7 +282,7 @@ AddPlayerPostInit(function(inst)
 		--逐组装备
 		local expected = {}
 		for group, info in pairs(group_best) do
-			AutoEquipMedalForGroup(inst, group, bufferedaction, usedSlots, protectedSet, info.medal)
+			AutoEquipMedalForGroup(inst, group, bufferedaction, usedSlots, protectedSet, info.medal, nil, GetActionFusion())
 			table.insert(expected, info.medal)
 			protectedSet[info.medal] = true--同上：防止被后续勋章挤出融合勋章
 		end
@@ -271,7 +315,14 @@ end)
 
 --------------------------------组合装备--------------------------------
 local player_decision_caches = {}
-local function AutoEquipMedalForGroup(player, group, action, usedSlots, protectedSet, medalPrefab, forcedMedalItem)
+--玩家离开清掉决策缓存(key 与下面 AutoEquipMedalForGroup 内的算法保持一致)，避免残留小表
+AddPlayerPostInit(function(player)
+	if not GLOBAL.TheNet:GetIsServer() then return end
+	player:ListenForEvent("onremove", function()
+		player_decision_caches[player.userid or player.guid or 0] = nil
+	end)
+end)
+AutoEquipMedalForGroup = function(player, group, action, usedSlots, protectedSet, medalPrefab, forcedMedalItem, action_fusion)
 	if player == nil or not player:HasTag("player") then return end
 	local inv = player.components.inventory
 	if inv == nil then return end
@@ -289,7 +340,8 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protecte
 
 	--先选最优融合勋章(按等级)，再带它选指定勋章：优先返回已在融合勋章内的，避免同prefab多个勋章来回换装
 	--forcedMedalItem：调用方直接指定实例(致命伤保命用)，保证"耐久判定"与"实际装备/被扣耐久"是同一枚
-	local bestFusion = U.FindBestFusionMedal(player)
+	local bestFusion = action_fusion--调用方已在本动作内求过一次则复用(见GetActionFusion)，未传则自行查找
+	if bestFusion == nil then bestFusion = U.FindBestFusionMedal(player) end
 	if bestFusion ~= nil and not bestFusion:IsValid() then
 		bestFusion = nil
 		player_decision_caches[player_id] = nil
@@ -326,8 +378,10 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protecte
 		U.PutMedalIntoFusion(player, bestFusion, bestMedal, usedSlots, protectedSet)
 		if current_equipped ~= bestFusion then
 			inv:Equip(bestFusion)
-			HelperDebug("自动装备组合[%s]: 融合%s + %s%s", group, bestFusion.prefab, bestMedal.prefab,
-				(bestMedal.prefab == "copy_blank_certificate" and "("..tostring(bestMedal.medalname)..")" or ""))
+			if TUNING.HELPER_DEBUG_SWITCH then--关调试时不拼串
+				HelperDebug("自动装备组合[%s]: 融合%s + %s%s", group, bestFusion.prefab, bestMedal.prefab,
+					(bestMedal.prefab == "copy_blank_certificate" and "("..tostring(bestMedal.medalname)..")" or ""))
+			end
 		end
 		player_decision_caches[player_id] = { action_id = action_id, target_prefab = target_prefab,
 			medal_prefab = bestMedal.prefab, container_prefab = bestFusion.prefab, last_time = current_time }
@@ -337,8 +391,10 @@ local function AutoEquipMedalForGroup(player, group, action, usedSlots, protecte
 	--方案二：无融合勋章 → 直接装备。当前已戴目标勋章则跳过，否则强制换装
 	if current_equipped == bestMedal then return end
 	inv:Equip(bestMedal)
-	HelperDebug("自动装备勋章[%s]: %s%s", group, bestMedal.prefab,
-		(bestMedal.prefab == "copy_blank_certificate" and "("..tostring(bestMedal.medalname)..")" or ""))
+	if TUNING.HELPER_DEBUG_SWITCH then--关调试时不拼串
+		HelperDebug("自动装备勋章[%s]: %s%s", group, bestMedal.prefab,
+			(bestMedal.prefab == "copy_blank_certificate" and "("..tostring(bestMedal.medalname)..")" or ""))
+	end
 	player_decision_caches[player_id] = { action_id = action_id, target_prefab = target_prefab,
 		medal_prefab = bestMedal.prefab, container_prefab = nil, last_time = current_time }
 end
@@ -349,7 +405,7 @@ end
 local function FindReincarnationMedal(player, group)
 	local best, best_uses
 	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
-		local prefab = (item.prefab == "copy_blank_certificate" and item.medalname) or item.prefab
+		local prefab = GetRealPrefab(item)
 		local fu = item.components and item.components.finiteuses
 		if prefab ~= nil and fu ~= nil and U.MEDAL_GROUP[prefab] == group and U.ORIGIN_BONUS_MAP[prefab] ~= nil then
 			local uses = fu:GetUses()
@@ -372,7 +428,7 @@ local function TryFatalDamageAutoEquip(inst)
 		local cfg = inst.medal_group_enabled
 		if cfg == nil or cfg[group] ~= false then
 			local best, uses = FindReincarnationMedal(inst, group)
-			local prefab = best ~= nil and ((best.prefab == "copy_blank_certificate" and best.medalname) or best.prefab) or nil
+			local prefab = best ~= nil and GetRealPrefab(best) or nil
 			if prefab ~= nil and uses ~= nil and uses >= REINCARNATION_CONSUME then
 				--透传best实例：避免内部再次查找时换成另一枚(导致"检查够用、实际扣不够")
 				AutoEquipMedalForGroup(inst, group, { action = { id = "REINCARNATION" } }, nil, nil, prefab, best)
@@ -396,5 +452,3 @@ AddComponentPostInit("health", function(self)
 	end
 end)
 
-GLOBAL.AutoEquipMedalForGroup = AutoEquipMedalForGroup
-GLOBAL.TryFatalDamageAutoEquip = TryFatalDamageAutoEquip

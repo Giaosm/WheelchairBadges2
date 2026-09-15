@@ -1,21 +1,18 @@
 --拥有(未佩戴)临时赋标签/组件；佩戴归勋章管不干预；原生已有不登记不误删
 local MEDAL_RULES = HelperRules_MEDAL_RULES
-local MEDAL_SLOT = EQUIPSLOTS.MEDAL or EQUIPSLOTS.NECK or EQUIPSLOTS.BODY
+local GetRealPrefab = GLOBAL.GetMedalRealPrefab--取真名(复制勋章→印刻对象)，定义见 helper_globalfn.lua
+local MEDAL_SLOT = GLOBAL.EQUIPSLOT_MEDAL--勋章槽，定义见 helper_globalfn.lua
 local TAG_CONDITIONS = {
 	no_portableengineer = function(player) return not player:HasTag("portableengineer") end,
 }
 
 local function IsMedalItem(item, prefabname)
-	if item == nil then return false end
-	return item.prefab == prefabname
-		or (item.prefab == "copy_blank_certificate" and item.medalname == prefabname)
+	return GetRealPrefab(item) == prefabname
 end
 
 --装备槽命中目标勋章的实例(含融合勋章内部，多枚取等级最高)，未佩戴返回nil
 local function FindEquippedMedal(player, prefabname)
-	if player == nil then return nil end
-	local inv = player.components and player.components.inventory
-	local medal = inv and inv:GetEquippedItem(MEDAL_SLOT)
+	local medal = GLOBAL.GetMedalSlotItem(player)
 	if medal == nil then return nil end
 	if IsMedalItem(medal, prefabname) then return medal end
 	if medal:HasTag("multivariate_certificate") and medal.components.container then
@@ -34,14 +31,6 @@ local function IsMedalEquipped(player, prefabname) return FindEquippedMedal(play
 local function GetEquippedMedalLevel(player, prefabname)
 	local medal = FindEquippedMedal(player, prefabname)
 	return medal ~= nil and (medal.medal_level or 0) or nil
-end
---是否拥有指定勋章
-local function IsMedalOwned(player, prefabname)
-	if player == nil then return false end
-	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
-		if IsMedalItem(item, prefabname) then return true end
-	end
-	return false
 end
 
 --标签是否为佩戴勋章的真来源(剥临时标签前判定：真佩戴一律不干预)
@@ -79,8 +68,22 @@ local function RefreshPlayerMedalTags(player)
 
 	local tag_should, com_should = {}, {}
 	local tag_equipped, com_equipped = {}, {}
+	--单次扫描建映射：真prefab→是否持有 / 持有最高等级(复制勋章按印刻对象算)。原来每条规则各扫一次(18~19次)
+	local owned_map, owned_max_level = {}, {}
+	for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
+		local real = GetRealPrefab(item)
+		if real ~= nil then
+			owned_map[real] = true
+			local lv = item.medal_level or 0
+			if lv > (owned_max_level[real] or 0) then owned_max_level[real] = lv end
+		end
+	end
+	--佩戴状态表两张交替复用(不每帧新建)，旧表留作prev_equip比较
 	local prev_equip = player.helper_medal_equip_state or {}
-	player.helper_medal_equip_state = {}
+	local cur_equip = player.helper_medal_equip_state_spare or {}
+	for prefab in pairs(cur_equip) do cur_equip[prefab] = nil end
+	player.helper_medal_equip_state = cur_equip
+	player.helper_medal_equip_state_spare = prev_equip
 	local equip_changed = false
 
 	for prefab, rule in pairs(MEDAL_RULES) do
@@ -94,9 +97,9 @@ local function RefreshPlayerMedalTags(player)
 		if rule.group == "chefMedal" and player.helper_medal_eat_masterchef then
 			group_enabled = false--进食时剥厨师组防wisecracker误报
 		end
-		local owned = group_enabled and IsMedalOwned(player, prefab)
+		local owned = group_enabled and owned_map[prefab] == true
 		local equipped = group_enabled and IsMedalEquipped(player, prefab)
-		player.helper_medal_equip_state[prefab] = equipped
+		cur_equip[prefab] = equipped
 		if equipped then
 			for _, tag in ipairs(rule.tags or {}) do tag_equipped[tag] = true end
 			for _, condtags in pairs(rule.conditional_tags or {}) do
@@ -127,14 +130,9 @@ local function RefreshPlayerMedalTags(player)
 				end
 			end
 			for _, com in ipairs(rule.components or {}) do com_should[com] = true end
-			--按持有最高等级赋等级标签
+			--按持有最高等级赋等级标签(等级取自上面的单次扫描)
 			if rule.level_tag_base ~= nil then
-				local max_level = 0
-				for _, item in ipairs(GLOBAL.GetPlayerMedalItems(player)) do
-					if IsMedalItem(item, prefab) and item.medal_level then
-						max_level = math.max(max_level, item.medal_level)
-					end
-				end
+				local max_level = owned_max_level[prefab] or 0
 				for i = 1, max_level do tag_should[rule.level_tag_base .. i] = true end
 			end
 		end
@@ -183,7 +181,7 @@ local function RefreshPlayerMedalTags(player)
 	if changed then
 		player:PushEvent("refreshcrafting")
 	end
-	if HelperDebug then--汇总残留
+	if TUNING.HELPER_DEBUG_SWITCH then--汇总残留(关调试不做无用拼接)
 		local parts = {}
 		for tag in pairs(player.helper_medal_tags or {}) do
 			local cnt = player.medal_tag and player.medal_tag[tag]
@@ -211,30 +209,23 @@ local function QueueMedalRefresh(player)
 	end)
 end
 
---给容器(勋章盒/融合勋章等)挂监听(幂等)
-local function ListenMedalContainer(player, item)
+--给容器(勋章盒/融合勋章等)挂监听(幂等)；持有者回调时现读，物品换手后刷的是"当前拿着它的人"
+local function ListenMedalContainer(item)
 	if item == nil or item.helper_medal_listened or not (item.components and item.components.container) then return end
 	item.helper_medal_listened = true
-	local function onc() QueueMedalRefresh(player) end
+	local function onc()
+		local owner = GLOBAL.GetItemPlayerOwner(item)
+		if owner ~= nil then QueueMedalRefresh(owner) end
+	end
 	item:ListenForEvent("itemget", onc)
 	item:ListenForEvent("itemlose", onc)
 end
 --递归扫描容器挂监听
 ListenAllMedalContainers = function(player)
-	local inv = player and player.components and player.components.inventory
-	if inv == nil then return end
-	local scanned = {}
-	local function scan(item)
-		if item == nil or scanned[item.GUID] then return end
-		scanned[item.GUID] = true
-		ListenMedalContainer(player, item)
-		local c = item.components and item.components.container
-		if c and c.slots then
-			for _, sub in pairs(c.slots) do scan(sub) end
-		end
-	end
-	for _, item in pairs(inv.itemslots or {}) do scan(item) end
-	for _, item in pairs(inv.equipslots or {}) do scan(item) end
+	--沿用原行为：不含手持、深度不限(GUID去重已防循环)
+	GLOBAL.TraversePlayerItems(player, function(item)
+		ListenMedalContainer(item)
+	end, { include_hand = false })
 end
 
 ----------------------------------------事件驱动----------------------------------------
@@ -282,10 +273,11 @@ local function WithTempTag(player, tag, fn, ...)
 	if player ~= nil and player.helper_medal_tags ~= nil and player.helper_medal_tags[tag]
 		and not IsMedalTagGenuine(player, tag) then
 		GLOBAL.RemoveMedalTag(player, tag)
-		local results = { pcall(fn, ...) }
+		local results = {}
+		local n = GLOBAL.CollectResults(results, pcall(fn, ...))--完整保留被包函数返回值(含尾部 nil)
 		GLOBAL.AddMedalTag(player, tag)
 		if not results[1] then error(results[2]) end
-		return unpack(results, 2)
+		return unpack(results, 2, n)
 	end
 	return fn(...)
 end

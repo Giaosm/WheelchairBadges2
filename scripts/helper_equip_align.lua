@@ -37,10 +37,11 @@ end
 local function RunAlignWindow(player, expected, action_id, phase, fn, ...)
 	if expected == nil then return fn(...) end
 	local active = BeginAlign(player, expected, action_id, phase)
-	local ok, a, b = pcall(fn, ...)
+	local results = {}
+	local n = GLOBAL.CollectResults(results, pcall(fn, ...))--完整保留被包函数返回值(含尾部 nil)
 	if active then EndAlign(player) end
-	if not ok then error(a) end
-	return a, b
+	if not results[1] then error(results[2]) end
+	return unpack(results, 2, n)
 end
 
 --选状态(先于 Do)：StartAction 内部调 sg.actionhandlers[action].deststate，官方快采/动作劫持的 testfn 就在里面，
