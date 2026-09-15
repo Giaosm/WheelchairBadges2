@@ -57,6 +57,9 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 	--矿工勋章组
 	minerMedal = {
 		name = "矿工勋章",
+		action_ids = {
+			"REMOVELUNARBUILDUP",	--清理月雹
+		},
 		action_targets = {
 			MINE = { exclude_prefabs = { "rock_avocado_fruit" } },	--排除不消耗耐久的石果
 		},
