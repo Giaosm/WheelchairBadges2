@@ -234,6 +234,24 @@ local function PutMedalIntoFusion(player, fusion, medal, usedSlots, protectedSet
 end
 
 --------------------------------目标条件匹配(纯函数)--------------------------------
+--取"正在用的法杖"(与原版 CASTSPELL.fn 同取法：优先invobject，否则手持槽)
+local function GetHeldStaff(bufferedaction)
+	local staff = bufferedaction.invobject
+	if staff == nil then
+		local doer = bufferedaction.doer
+		staff = doer and doer.components.inventory and doer.components.inventory:GetEquippedItem(GLOBAL.EQUIPSLOTS.HANDS)
+	end
+	return staff
+end
+--会吞东西的两把法杖(能力勋章里只有它俩用pickup_func，也只有它俩吞树桩)，其它CASTSPELL来源不参与range_tags
+local RANGE_TAGS_STAFFS = { devour_staff = true, medal_space_staff = true }
+--施法半径：读法杖实例上能力勋章存的medal_show_radius，取不到(非法杖)再回退同名tuning
+local function GetCastRadius(bufferedaction)
+	local staff = GetHeldStaff(bufferedaction)
+	local radius = staff ~= nil and staff.medal_show_radius or nil
+	return radius or GLOBAL.GetMedalTuning("DEVOUR_STAFF_RADIUS", 8)
+end
+
 local function MatchActionTarget(bufferedaction, cond)
 	if cond == nil then return true end
 	--条件数组("或")：任一子条件满足即触发(递归)
@@ -327,6 +345,30 @@ local function MatchActionTarget(bufferedaction, cond)
 		if not match then return false end
 	end
 
+	--range_tags：施法中心(动作点>目标位置>施法者位置)半径内存在带"任一"指定标签的实体才满足
+	if cond.range_tags and #cond.range_tags > 0 then
+		local staff = GetHeldStaff(bufferedaction)
+		if staff == nil or not RANGE_TAGS_STAFFS[staff.prefab] then return false end--只认会吞东西的两把法杖
+		local x, y, z
+		local point = bufferedaction.GetActionPoint ~= nil and bufferedaction:GetActionPoint() or nil
+		if point ~= nil then
+			x, y, z = point:Get()
+		else
+			local anchor = bufferedaction.target or bufferedaction.doer
+			if anchor == nil or anchor.Transform == nil then return false end
+			x, y, z = anchor.Transform:GetWorldPosition()
+		end
+		--不做排除过滤：能不能被吸由能力勋章自己判定
+		local found = false
+		for _, v in ipairs(TheSim:FindEntities(x, y, z, GetCastRadius(bufferedaction))) do
+			for _, tag in ipairs(cond.range_tags) do
+				if v:HasTag(tag) then found = true break end
+			end
+			if found then break end
+		end
+		if not found then return false end
+	end
+
 	if target ~= nil then
 		if cond.tags and #cond.tags > 0 then
 			local hit = false
@@ -366,7 +408,8 @@ local function MatchActionTarget(bufferedaction, cond)
 		local hasRecipeCond = (cond.recipe_builder_tag and #cond.recipe_builder_tag > 0)
 			or (cond.exclude_recipe_props and #cond.exclude_recipe_props > 0)
 			or (cond.keep_recipe_builder_tag and #cond.keep_recipe_builder_tag > 0)
-		if not hasRecipeCond then return false end
+		local hasRangeCond = cond.range_tags and #cond.range_tags > 0--range_tags已在上面判定通过，无目标(对点施法)也算有效条件
+		if not hasRecipeCond and not hasRangeCond then return false end
 	end
 
 	if cond.recipe_builder_tag and #cond.recipe_builder_tag > 0 then

@@ -95,6 +95,17 @@ HelperRules_AUTO_EQUIP = {
 			["chef_certificate"]       = 20,	--大厨(强制冷却)
 			["bathingfire_certificate"] = 10,	--浴火(强制冷却)
 		},
+		--吞噬法杖(左键快速施法/右键施法)：三组都可能命中，伐木(树桩) > 丰收(可采收物) > 植物(月树花/巨石枝)
+		MEDALSTAFFDEVOUR = {
+			["largechop_certificate"]  = 30,	--高级伐木(吞树桩)
+			["harvest_certificate"]    = 20,	--丰收(吞可采收物)
+			["transplant_certificate"] = 10,	--植物(吞月树花/巨石枝)
+		},
+		CASTSPELL = {
+			["largechop_certificate"]  = 30,	--高级伐木(吞树桩)
+			["harvest_certificate"]    = 20,	--丰收(吞可采收物)
+			["transplant_certificate"] = 10,	--植物(吞月树花/巨石枝)
+		},
 	},
 
 	--保护勋章：特定环境下不可被自动装备移走。env(player)返回true即进入保护。
