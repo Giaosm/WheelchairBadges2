@@ -110,12 +110,12 @@ HelperRules_AUTO_EQUIP = {
 
 	--保护勋章：特定环境下不可被自动装备移走。env(player)返回true即进入保护。
 	PROTECT_MEDALS = {
-		--踏水勋章：水上保护(在水面且不在船上时需踏水，防止掉水淹死)
+		--踏水勋章：水面/虚空保护(在水面或虚空且不在船上时需踏水，防止掉水/掉虚空)
 		treadwater_certificate = { env = function(player)
 			if player == nil or player:HasTag("playerghost") then return false end
 			if player:GetCurrentPlatform() ~= nil then return false end--在船上安全
 			if player.components.drownable == nil then return false end
-			return player.components.drownable:IsOverWater()
+			return player.components.drownable:IsOverWater() or player.components.drownable:IsOverVoid()
 		end },
 		--复眼勋章：非月圆夜晚或风暴中保护(对齐能力勋章耐久消耗逻辑)
 		ommateum_certificate = { env = function(player)
