@@ -178,6 +178,20 @@ local function RefreshPlayerMedalTags(player)
 		end
 	end
 
+	--◆先知◆：纯作弊开关，直接管理 infinite_prophecy 标签(无时效性，不走Buff系统)
+	--注意：与预言水晶球的真预知Buff共用同一底层标签 infinite_prophecy
+	local seer_on = player.medal_group_enabled ~= nil and player.medal_group_enabled["seer"] == true
+	local real_prophesy = player.components.debuffable ~= nil
+		and player.components.debuffable:HasDebuff("buff_medal_prophesy") == true
+	if seer_on then
+		if not player:HasTag("infinite_prophecy") then
+			player:AddTag("infinite_prophecy"); changed = true
+		end
+	elseif player:HasTag("infinite_prophecy") and not real_prophesy then
+		--先知关闭即摘掉预知标签；但若预言水晶球的真Buff仍生效则保留，避免误杀真Buff的预知效果
+		player:RemoveTag("infinite_prophecy"); changed = true
+	end
+
 	if changed then
 		player:PushEvent("refreshcrafting")
 	end
@@ -257,6 +271,24 @@ AddPlayerPostInit(function(player)
 	player:ListenForEvent("equip", OnPlayerInventoryChanged)
 	player:ListenForEvent("unequip", OnPlayerInventoryChanged)
 end)
+--◆先知◆：预言水晶球的预知Buff到期/被移除时，若先知开启则立刻补回 infinite_prophecy 标签，消除空窗
+if GLOBAL.TheNet:GetIsServer() then
+	AddComponentPostInit("debuffable", function(self)
+		local oldRemoveDebuff = self.RemoveDebuff
+		self.RemoveDebuff = function(self, name, ...)
+			local r = oldRemoveDebuff and oldRemoveDebuff(self, name, ...) or nil
+			if name == "buff_medal_prophesy" and self.inst ~= nil then
+				local p = self.inst
+				if p.medal_group_enabled ~= nil and p.medal_group_enabled["seer"] == true
+					and not p:HasTag("infinite_prophecy") then
+					p:AddTag("infinite_prophecy")
+					p:PushEvent("refreshcrafting")
+				end
+			end
+			return r
+		end
+	end)
+end
 AddPrefabPostInit("world", function(inst)
 	inst:ListenForEvent("ms_playerjoined", function(src, player)
 		if player == nil or not player:HasTag("player") then return end

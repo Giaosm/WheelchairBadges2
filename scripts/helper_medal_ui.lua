@@ -10,14 +10,14 @@ local GLOBAL_ImageButton = GLOBAL.require("widgets/imagebutton")
 local GLOBAL_TEMPLATES = GLOBAL.require("widgets/redux/templates")
 
 --勋章组列表(自动装备组，取helper_autoequip_actions.lua的name；特殊开关如autoexam自动答题走额外名字映射)
-local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "speedMedal", "childMedal", "shadowmagicMedal", "naughtyMedal", "fishingMedal", "bathfireMedal", "tentacleMedal", "inheritMedal", "justiceMedal", "jvMode", "valkyrieMedal", "autoexam", "tributeAnswer", "treasureMaster" }
+local UI_GROUP_ORDER = { "chopMedal", "minerMedal", "chefMedal", "handyMedal", "harvestMedal", "plantMedal", "wisdomMedal", "speedMedal", "childMedal", "shadowmagicMedal", "naughtyMedal", "fishingMedal", "bathfireMedal", "tentacleMedal", "inheritMedal", "justiceMedal", "jvMode", "valkyrieMedal", "autoexam", "tributeAnswer", "treasureMaster", "seer" }
 --非自动装备组的开关中文名
-local UI_EXTRA_NAMES = { autoexam = "自动答题", tributeAnswer = "奉纳透视", jvMode = "正义武神", treasureMaster = "寻宝大师" }
+local UI_EXTRA_NAMES = { autoexam = "自动答题", tributeAnswer = "奉纳透视", jvMode = "正义武神", treasureMaster = "寻宝大师", seer = "◆先知◆" }
 local UI_GROUPS = {}
 for _, g in ipairs(UI_GROUP_ORDER) do
 	local name = (HelperRules_AUTO_EQUIP_ACTIONS[g] and HelperRules_AUTO_EQUIP_ACTIONS[g].name)
 		or UI_EXTRA_NAMES[g] or g
-	table.insert(UI_GROUPS, { group = g, name = name, defaultOff = (g == "tributeAnswer" or g == "treasureMaster"), jvMode = (g == "jvMode") })
+	table.insert(UI_GROUPS, { group = g, name = name, defaultOff = (g == "tributeAnswer" or g == "treasureMaster" or g == "seer"), jvMode = (g == "jvMode") })
 end
 --自动补充勋章直接排进网格(标记autoRepair=prefab，走阈值选择器而非开/关)
 for ar_prefab in pairs(GLOBAL.AUTOREPAIR_MEDALS or {}) do
