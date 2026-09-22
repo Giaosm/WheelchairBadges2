@@ -289,4 +289,14 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			BUILD = { recipe_builder_tag = { "traditionalbearer1", "traditionalbearer2", "traditionalbearer3" } },	--制作传承勋章解锁的配方(羽绒帽/蓝晶帽/复眼/速度/空间/未解之谜/本源精华等)
 		},
 	},
+	--蜂王勋章组
+	beeKingMedal = {
+		name = "蜂王勋章",	--基础骨架，具体触发动作(蜂群/AOE/毒伤等)待补充
+		action_ids = {
+			"ATTACK",	--攻击时自动装备蜂王勋章(毒伤/AOE)
+		},
+		action_targets = {
+			HARVEST = { prefabs = { "medal_beebox" } },	--收获育王蜂箱(medal_beebox)时触发
+		},
+	},
 }
