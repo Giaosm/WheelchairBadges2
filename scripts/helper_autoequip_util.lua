@@ -274,6 +274,15 @@ local function MatchActionTarget(bufferedaction, cond)
 		if not hit then return false end
 	end
 
+	--player_all_tags：玩家自身必须带"全部"指定标签才满足(如要求戴本源/特定勋章才触发)
+	if cond.player_all_tags and #cond.player_all_tags > 0 then
+		local doer = bufferedaction.doer
+		if doer == nil then return false end
+		for _, tag in ipairs(cond.player_all_tags) do
+			if not doer:HasTag(tag) then return false end
+		end
+	end
+
 	if target ~= nil then
 		if cond.exclude_tags and #cond.exclude_tags > 0 then
 			for _, tag in ipairs(cond.exclude_tags) do

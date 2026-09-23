@@ -28,6 +28,7 @@
 --       props          = { is_oversized = true }, -- 目标须满足指定属性(如农场作物植株的is_oversized)：true=须有且为真，false=须无/为假
 --       hand_tags      = { "deployedfarmplant" }, -- 手持物(invobject)带"任一"指定标签才满足(用于DEPLOY区分"种种子"与"部署设备"等)
 --       actor_prefabs  = { "warly" },          -- 执行动作的玩家prefab是"任一"指定才满足(如厨师组吃料理只在沃利时自动装备)
+--       player_all_tags = { "tag" },           -- 玩家自身必须带"全部"指定标签才满足(如要求戴本源/特定勋章才触发；与actor_prefabs互补：一个看角色、一个看标签)
 --       slingshot_ammo = { "ammo" },           -- 手持弹弓当前装的弹药是"任一"指定prefab才满足(如沙刺弹medalslingshotammo_sandspike)；支持"tag:xxx"前缀匹配弹药物品标签
 --       season_fish    = { prefab = "season" }, -- 玩家周围献祭范围(BOOK_SACRIFICE_RADIUS)内有指定季节鱼(地上实体)且当前季节≠对应季节才满足(换季献祭需勋章)
 --       range_tags     = { "stump" },          -- 施法中心(动作点>目标位置>施法者位置)半径内存在带"任一"指定标签的实体才满足；半径取法杖的medal_show_radius(缺省用tuning DEVOUR_STAFF_RADIUS)；仅对吞噬法杖/时空法杖生效(名单见helper_autoequip_util.lua的RANGE_TAGS_STAFFS，其它CASTSPELL来源如原版魔杖不参与)，用于对点/对自己施法这类没有点击目标的动作
@@ -86,7 +87,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			DEPLOY        = { prefabs = { "portablecookpot_item", "portablespicer_item", "portableblender_item" } },	--展开便携设备
 			DISMANTLE     = { prefabs = { "portablecookpot", "portablespicer", "portableblender" } },	--收回便携设备
 			BUILD         = { recipe_builder_tag = { "masterchef", "professionalchef", "seasoningchef" } },	--制作厨师专属配方
-			EAT           = { actor_prefabs = { "warly" } },	--吃料理时自动装备(仅沃利)
+			EAT           = { headchef_certificate = { actor_prefabs = { "warly" } } },	--吃料理时自动装备(仅沃利)
 		},
 	},
 	--巧手勋章组
@@ -144,8 +145,8 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 				plant_certificate = { props = { is_oversized = true }, exclude_tags = { "farm_plant_killjoy" } },	--采巨型作物(is_oversized)戴虫木勋章，排除腐烂作物
 			},
 			HARVEST = { prefabs = { "waterplant" } },	--收获藤壶(戴植物勋章带plantkin免被海草攻击)
-			MEDALSTAFFDEVOUR = { transplant_certificate = { tags = { "medal_harvestable", "rock_tree" } } },
-			CASTSPELL        = { transplant_certificate = { range_tags = { "medal_harvestable", "rock_tree" } } },
+			MEDALSTAFFDEVOUR = { transplant_certificate = { tags = { "medal_harvestable", "rock_tree" }, player_all_tags = { "has_origin_medal", "medal_fastpicker" } } },
+			CASTSPELL        = { transplant_certificate = { range_tags = { "medal_harvestable", "rock_tree" }, player_all_tags = { "has_origin_medal", "medal_fastpicker" } } },
 		},
 	},
 
@@ -173,7 +174,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			READ   = { prefabs = { "unsolved_book" }, season_fish = { oceanfish_small_7_inv = "spring", oceanfish_small_8_inv = "summer", oceanfish_small_6_inv = "autumn", oceanfish_medium_8_inv = "winter" } },	--阅读未解之谜书献祭季节鱼换季(时空勋章)
 			ATTACK = { slingshot_ammo = { "medalslingshotammo_sandspike" } },	--弹弓装沙刺弹攻击(佩戴时空勋章无视地形生成时空之刃)
 			WASHFUNCTIONAL = { prefabs = { "yellowstaff" } },	--能力清洗
-			COOK = { prefabs = { "medal_cookpot" } },	--红晶锅烹饪
+			COOK = { prefabs = { "medal_cookpot" }, player_all_tags = { "seasoningchef" } },	--红晶锅烹饪；需玩家拥有主厨标签(seasoningchef)
 		},
 	},
 	--童真勋章组
@@ -234,7 +235,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		action_targets = {
 			BUILD = { recipe_builder_tag = { "has_bathfire_medal", "pyromaniac" } },	--制作浴火专属配方/打火机/伯尼熊
 			ADDFUEL = { tags = { "campfire", "prefab:nightlight" } },	--给营火类(campfire标签)/夜灯(prefab:nightlight)加燃料(fuelmaster燃烧效率加成)
-			EQUIP = { prefabs = { "armor_medal_obsidian", "armor_blue_crystal", "armor_medal_space_time" } },	--装备红晶甲/蓝晶甲/时空晶甲(本源浴火反伤加成)
+			EQUIP = { prefabs = { "armor_medal_obsidian", "armor_blue_crystal", "armor_medal_space_time" }, player_all_tags = { "has_origin_medal" } },	--装备红晶甲/蓝晶甲/时空晶甲(本源浴火反伤加成)；需玩家拥有本源勋章标签(has_origin_medal)
 		},
 	},
 	--正义勋章组
@@ -294,10 +295,12 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		name = "蜂王勋章",	--基础骨架，具体触发动作(蜂群/AOE/毒伤等)待补充
 		action_ids = {
 			"ATTACK",	--攻击时自动装备蜂王勋章(毒伤/AOE)
-			"MEDALBEEBOXHARVEST",	--自定义动作：收获满蜜的育王蜂箱(medal_beebox)时触发
 		},
 		action_targets = {
-			HARVEST = { prefabs = { "medal_beebox" } },	--收获育王蜂箱(medal_beebox)时触发
+			HARVEST = { prefabs = { "medal_beebox" }, player_all_tags = { "has_origin_medal" } },	--收获育王蜂箱(medal_beebox)时触发；需玩家拥有本源勋章标签(has_origin_medal)
+			MEDALBEEBOXHARVEST = { player_all_tags = { "has_origin_medal" } },	--自定义动作：右键收获满蜜育王蜂箱(medal_beebox)的凋零蜂王浆时触发；需玩家拥有本源勋章标签(has_origin_medal)
+			MEDALSTAFFDEVOUR = { tags = { "medal_beebox_full" }, player_all_tags = { "medal_fastpicker" } },	--目标育王蜂箱满蜜(medal_beebox_full)，且玩家拥有丰收勋章标签(medal_fastpicker)
+			CASTSPELL = { range_tags = { "medal_beebox_full" }, player_all_tags = { "medal_fastpicker" } },	--施法范围内存在满蜜育王蜂箱(medal_beebox_full)，且玩家拥有丰收勋章标签(medal_fastpicker)
 		},
 	},
 }
