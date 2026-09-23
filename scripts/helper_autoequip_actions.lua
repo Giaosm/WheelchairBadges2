@@ -294,6 +294,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		name = "蜂王勋章",	--基础骨架，具体触发动作(蜂群/AOE/毒伤等)待补充
 		action_ids = {
 			"ATTACK",	--攻击时自动装备蜂王勋章(毒伤/AOE)
+			"MEDALBEEBOXHARVEST",	--自定义动作：收获满蜜的育王蜂箱(medal_beebox)时触发
 		},
 		action_targets = {
 			HARVEST = { prefabs = { "medal_beebox" } },	--收获育王蜂箱(medal_beebox)时触发
