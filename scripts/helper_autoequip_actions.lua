@@ -93,9 +93,6 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 	--巧手勋章组
 	handyMedal = {
 		name = "巧手勋章",
-		action_ids = {
-			"MEDAL_GRINDING",	--研磨(戴巧手勋章缩短动作domediumaction)
-		},
 		action_targets = {
 			BUILD                   = { exclude_recipe_props = { "builder_tag" }, keep_recipe_builder_tag = { "handyperson", "has_handy_medal" } },	--制作所有东西(快速制作)，排除其他勋章专属配方(女工+巧手专属除外)
 			UNWRAP                  = { has_component = { "unwrappable" } },	--快速拆包(拆可拆包包裹，has_handy_medal加速)
@@ -103,6 +100,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			UNWRAPOVERSIZEDGIFTFRUIT = { all_tags = { "oversized_veggie", "waxable" } },	--拆巨型包果(本源+巧手专属)
 			DEPLOY                  = { prefabs = { "winona_catapult_item", "winona_spotlight_item", "winona_battery_low_item", "winona_battery_high_item" } },	--部署女工专属建筑(投石机/探照灯/发电机)
 			--DISMANTLE             = { prefabs = { "winona_catapult", "winona_spotlight", "winona_battery_low", "winona_battery_high" } },	--拆除女工专属建筑(投石机/探照灯/发电机)【暂时不用】
+			MEDAL_GRINDING          = { player_all_tags = { "seasoningchef" } },	--研磨(需玩家拥有主厨勋章标签seasoningchef)
 		},
 	},
 	--丰收勋章组(单枚，medal_fastpicker快采)
@@ -187,6 +185,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			EQUIP = { tags = { "slingshot" } },	--装备弹弓(含皮肤/变体版)
 			ATTACK = { slingshot_ammo = { "tag:slingshotammo" } },	--弹弓射击弹药
 			BUILD = { recipe_builder_tag = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness", "senior_childishness" } },	--解锁配方
+			MEDALEXCHANGEGIFT = { player_all_tags = { "has_origin_medal" } },	--童心箱换取礼物(右键)；需玩家拥有本源勋章标签(has_origin_medal)
 		},
 	},
 	--暗影勋章组
