@@ -4,8 +4,9 @@
 -- 结构：key = 勋章组名(见 helper_autoequip_rules.lua)
 --   value = {
 --     action_ids     = { "CHOP", ... },      -- [可选]无条件动作列表：执行即触发，可不填
---       --特殊动作(非ACTIONS动作，命中走独立监听，见 helper_autoequip.lua 的 SPECIAL_ACTIONS)：
---       --  "REINCARNATION"                  -- 致命伤时空守护：玩家濒死时自动装备本源+该组本源加成勋章(需耐久≥REINCARNATION_CONSUME)，触发能力勋章轮回保命
+--       --特殊/伪动作(非ACTIONS动作)：
+--       --  "REINCARNATION"                  -- 致命伤时空守护：玩家濒死时自动装备本源+该组本源加成勋章(需耐久≥REINCARNATION_CONSUME)，触发能力勋章轮回保命；走独立监听(见 helper_autoequip.lua 的 SPECIAL_ACTIONS)
+--       --  "NEARFIRENETTLE"                 -- 靠近成熟火荨麻(weed_firenettle)：非ACTIONS动作，但按普通动作流水线处理(自动装备+应佩戴/实际佩戴对齐)，装备后成真plantkin即免被扎伤+中毒
 --     action_targets = {                     -- [可选]带条件动作：动作 → 条件，可不填
 --
 --       --==== 条件的三种写法 ====--
@@ -134,6 +135,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			"MEDALMOONTREEHARVEST",		--采摘月树花(需本源勋章+植物勋章)
 			"MEDALTREEROCKSHARVEST",	--采摘巨石枝(需本源勋章+植物勋章)
 			"PLANTSOIL",				--种田(需plantkin标签)
+			"NEARFIRENETTLE",			--靠近成熟火荨麻(非动作触发：playerprox距离，装备后真plantkin免被扎伤+中毒)
 		},
 		action_targets = {
 			BUILD   = { recipe_builder_tag = { "has_plant_medal", "has_transplant_medal", "plantkin" } },	--制作植物专属配方(月光权杖/月光锤/月光网/肥料包等)

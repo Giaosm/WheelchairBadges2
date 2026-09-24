@@ -17,7 +17,8 @@ local COND_FIELDS = {
 	recipe_builder_tag = true, exclude_recipe_props = true, keep_recipe_builder_tag = true,
 	season_fish = true, slingshot_ammo = true, actor_prefabs = true, player_all_tags = true, range_tags = true,
 }
-local SPECIAL_ACTIONS = { REINCARNATION = true }
+local SPECIAL_ACTIONS = { REINCARNATION = true }--走独立监听(致命伤保命)，不参与动作流水线
+local PSEUDO_ACTIONS = { NEARFIRENETTLE = true }--非ACTIONS动作，但按普通动作流水线处理(靠近火荨麻)
 local SPECIAL_ACTION_ENTRIES = {}
 for kind in pairs(SPECIAL_ACTIONS) do SPECIAL_ACTION_ENTRIES[kind] = {} end
 
@@ -54,7 +55,7 @@ local function AddActionEntry(actionName, group, cond, medal)
 		table.insert(SPECIAL_ACTION_ENTRIES[actionName], { group = group, cond = cond, medal = medal })
 		return
 	end
-	if ACTIONS[actionName] == nil then
+	if not PSEUDO_ACTIONS[actionName] and ACTIONS[actionName] == nil then
 		HelperDebug("自动装备: 未找到动作 %s(组%s)，跳过", tostring(actionName), group)
 		return
 	end
@@ -120,6 +121,33 @@ local function InstallActionFnHook()
 end
 InstallActionFnHook()
 
+--------------------------------保护勋章--------------------------------
+--把"勋章槽当前佩戴且受保护"的勋章移入融合勋章，并把融合勋章装备回勋章槽(避免勋章槽空)。
+--返回 true=可继续本次自动装备；false=无融合可收纳，放弃本次(保住不动)。
+--bufferedaction 可为 nil(非动作触发：靠近火荨麻/致命伤保命等)。
+local function HandleProtectedEquipped(player, bufferedaction, usedSlots, protectedSet)
+	if protectedSet == nil or next(protectedSet) == nil then return true end
+	local protectedEquipped = GLOBAL.GetEquippedProtectedMedal(player, protectedSet)
+	if protectedEquipped == nil then return true end
+	--玩家手动把某物装备进勋章槽(右击融合勋章/单勋章)时，受保护勋章会被原生换装正常卸到背包，
+	--不要再把它塞进融合勋章并重复装备，否则两次 Equip + 嵌套容器搬运冲突导致勋章丢失
+	local action_id = bufferedaction ~= nil and bufferedaction.action ~= nil and bufferedaction.action.id or nil
+	local equipItem = bufferedaction ~= nil and (bufferedaction.invobject or bufferedaction.target) or nil
+	local medalSlot = GLOBAL.EQUIPSLOT_MEDAL--勋章槽(定义见 helper_globalfn.lua)
+	local isMedalSlotEquip = action_id == "EQUIP"
+		and equipItem ~= nil and equipItem.components
+		and equipItem.components.equippable ~= nil
+		and equipItem.components.equippable.equipslot == medalSlot
+	if isMedalSlotEquip then return true end
+	local fusion = U.FindAnyFusion(player)
+	if fusion == nil then return false end--无融合可收纳，保住不动
+	U.PutMedalIntoFusion(player, fusion, protectedEquipped, usedSlots, protectedSet)
+	if player.components.inventory then
+		player.components.inventory:Equip(fusion)--装备融合勋章回勋章槽，确保勋章槽不空
+	end
+	return true
+end
+
 AddPlayerPostInit(function(inst)
 	if not GLOBAL.TheNet:GetIsServer() then return end
 
@@ -175,29 +203,9 @@ AddPlayerPostInit(function(inst)
 		if entries == nil then return end
 		local usedSlots = {}
 
-		--保护勋章(水面等环境不可移走)：把受保护勋章移入融合勋章后，须把融合勋章装备回勋章槽，避免勋章槽空
+		--保护勋章(水面等环境不可移走)：受保护的已佩戴勋章先移入融合勋章保住，无融合则放弃本次(保住不动)
 		local protectedSet = GLOBAL.ComputeProtectedSet(inst)
-		if next(protectedSet) ~= nil then
-			local protectedEquipped = GLOBAL.GetEquippedProtectedMedal(inst, protectedSet)
-			if protectedEquipped ~= nil then
-				--玩家手动把某物装备进勋章槽(右击融合勋章/单勋章)时，受保护勋章会被原生换装正常卸到背包，
-				--不要再把它塞进融合勋章并重复装备，否则两次 Equip + 嵌套容器搬运冲突导致勋章丢失
-				local medalSlot = GLOBAL.EQUIPSLOT_MEDAL--勋章槽(定义见 helper_globalfn.lua)
-				local equipItem = bufferedaction.invobject or bufferedaction.target
-				local isMedalSlotEquip = bufferedaction.action.id == "EQUIP"
-					and equipItem ~= nil and equipItem.components
-					and equipItem.components.equippable ~= nil
-					and equipItem.components.equippable.equipslot == medalSlot
-				if not isMedalSlotEquip then
-					local fusion = U.FindAnyFusion(inst)
-					if fusion == nil then return end--无融合可收纳，保住不动
-					U.PutMedalIntoFusion(inst, fusion, protectedEquipped, usedSlots, protectedSet)
-					if inst.components.inventory then
-						inst.components.inventory:Equip(fusion)--装备融合勋章回勋章槽，确保勋章槽不空
-					end
-				end
-			end
-		end
+		if not HandleProtectedEquipped(inst, bufferedaction, usedSlots, protectedSet) then return end
 
 		--最优融合勋章本动作只求一次：装备的始终是同一枚，装备后重算结果不变；避免每个匹配组各扫一遍全量
 		local action_fusion, action_fusion_ready = nil, false
@@ -449,6 +457,28 @@ AddComponentPostInit("health", function(self)
 			TryFatalDamageAutoEquip(self.inst)
 		end
 		return oldSetVal and oldSetVal(self, val, cause, afflicter, ...) or nil
+	end
+end)
+
+--------------------------------火荨麻靠近(伪动作 NEARFIRENETTLE)--------------------------------
+--weed_firenettle 成熟后挂 playerprox(0.5~2.5格)，玩家靠近即被扎伤+中毒；它不走 ACTIONS，
+--故用伪动作 NEARFIRENETTLE 承接，照普通动作流水线：先 TryAutoEquip 换装+记应佩戴，再用 RunWithEquipAlign 包原回调(缺佩剥假标签)
+AddComponentPostInit("playerprox", function(self)
+	if self.inst == nil or self.inst.prefab ~= "weed_firenettle" then return end
+	local oldSetOnPlayerNear = self.SetOnPlayerNear
+	if oldSetOnPlayerNear == nil then return end
+	self.SetOnPlayerNear = function(self, fn, ...)
+		local wrapped = function(inst_, player_, ...)
+			local synthetic = { action = { id = "NEARFIRENETTLE" }, target = inst_, doer = player_ }
+			local try = player_ ~= nil and player_.helper_autoequip_fn or nil
+			if try ~= nil then try(synthetic) end
+			--与动作fn层捕获同款：先换装，再在对齐窗口内执行原回调(缺佩剥假标签)
+			if synthetic.helper_expected_medals ~= nil and GLOBAL.RunWithEquipAlign ~= nil then
+				return GLOBAL.RunWithEquipAlign(player_, synthetic.helper_expected_medals, "NEARFIRENETTLE", "fn", fn, inst_, player_, ...)
+			end
+			return fn(inst_, player_, ...)
+		end
+		return oldSetOnPlayerNear(self, wrapped, ...)
 	end
 end)
 

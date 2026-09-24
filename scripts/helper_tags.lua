@@ -348,6 +348,16 @@ AddComponentPostInit("burnable", function(self)
 		return oldIgnite(self, ...)
 	end
 end)
+--采花剥临时plantkin：原版flower.lua仅非plantkin才+5san，未真佩戴(临时标签)不该被抑制
+AddComponentPostInit("pickable", function(self)
+	local inst = self.inst
+	if inst == nil or not inst:HasTag("flower") then return end
+	local oldPick = self.Pick
+	if oldPick == nil then return end
+	self.Pick = function(self, picker, ...)
+		return WithTempTag(picker, "plantkin", oldPick, self, picker, ...)
+	end
+end)
 
 --开包果读开包者标签：临时traditionalbearer3剥掉(未真佩戴不享3级免空白)
 local function HookGiftFruitGift(prefab, method)
