@@ -86,6 +86,37 @@ local function RefreshPlayerMedalTags(player)
 	player.helper_medal_equip_state_spare = prev_equip
 	local equip_changed = false
 
+	--对齐排除(helper_equip_align.lua)：本次动作缺佩的勋章，其"能力"整轮不赋临时项。
+	--按标签/组件剥(而不是只掐那枚勋章的规则)：同组另一枚只是"拥有未佩戴"也不再顶上
+	--(如缺佩植物勋章时，虫木勋章不再提供plantkin)；真佩戴勋章真实提供的不受影响(靠tag_equipped保留)
+	local align_exclude = player.helper_medal_align_exclude
+	local align_tags, align_coms, align_level_bases
+	if align_exclude ~= nil then
+		for prefab in pairs(align_exclude) do
+			local rule = MEDAL_RULES[prefab]
+			if rule ~= nil then
+				align_tags = align_tags or {}
+				for _, tag in ipairs(rule.tags or {}) do
+					align_tags[tag] = true
+				end
+				for cond, condtags in pairs(rule.conditional_tags or {}) do
+					local check = TAG_CONDITIONS[cond]
+					if check and check(player) then
+						for _, tag in ipairs(condtags) do align_tags[tag] = true end
+					end
+				end
+				if rule.components ~= nil and #rule.components > 0 then
+					align_coms = align_coms or {}
+					for _, com in ipairs(rule.components) do align_coms[com] = true end
+				end
+				if rule.level_tag_base ~= nil then
+					align_level_bases = align_level_bases or {}
+					align_level_bases[rule.level_tag_base] = true
+				end
+			end
+		end
+	end
+
 	for prefab, rule in pairs(MEDAL_RULES) do
 		local group_enabled = true
 		if rule.group ~= nil and player.medal_group_enabled ~= nil and player.medal_group_enabled[rule.group] == false then
@@ -118,20 +149,24 @@ local function RefreshPlayerMedalTags(player)
 			equip_changed = true
 		end
 		--对齐排除(helper_equip_align.lua)：本次动作缺佩的勋章，整条规则不赋临时项(标签/组件/等级标签)
-		local align_exclude = player.helper_medal_align_exclude
+		--且它提供的能力(align_tags/align_coms/align_level_bases)也不许别的勋章顶上
 		if owned and not equipped and not (align_exclude ~= nil and align_exclude[prefab]) then
 			for _, tag in ipairs(rule.tags or {}) do
-				tag_should[tag] = true
+				if align_tags == nil or not align_tags[tag] then tag_should[tag] = true end
 			end
 			for cond, condtags in pairs(rule.conditional_tags or {}) do
 				local check = TAG_CONDITIONS[cond]
 				if check and check(player) then
-					for _, tag in ipairs(condtags) do tag_should[tag] = true end
+					for _, tag in ipairs(condtags) do
+						if align_tags == nil or not align_tags[tag] then tag_should[tag] = true end
+					end
 				end
 			end
-			for _, com in ipairs(rule.components or {}) do com_should[com] = true end
-			--按持有最高等级赋等级标签(等级取自上面的单次扫描)
-			if rule.level_tag_base ~= nil then
+			for _, com in ipairs(rule.components or {}) do
+				if align_coms == nil or not align_coms[com] then com_should[com] = true end
+			end
+			--按持有最高等级赋等级标签(等级取自上面的单次扫描；缺佩勋章对应的等级标签同样挡掉)
+			if rule.level_tag_base ~= nil and (align_level_bases == nil or not align_level_bases[rule.level_tag_base]) then
 				local max_level = owned_max_level[prefab] or 0
 				for i = 1, max_level do tag_should[rule.level_tag_base .. i] = true end
 			end

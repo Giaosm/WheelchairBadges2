@@ -16,6 +16,7 @@ local COND_FIELDS = {
 	exclude_tags = true, exclude_all_tags = true, exclude_prefabs = true, hand_tags = true,
 	recipe_builder_tag = true, exclude_recipe_props = true, keep_recipe_builder_tag = true,
 	season_fish = true, slingshot_ammo = true, actor_prefabs = true, player_all_tags = true, range_tags = true,
+	near_tags = true,
 }
 local SPECIAL_ACTIONS = { REINCARNATION = true }--走独立监听(致命伤保命)，不参与动作流水线
 local PSEUDO_ACTIONS = { NEARFIRENETTLE = true }--非ACTIONS动作，但按普通动作流水线处理(靠近火荨麻)

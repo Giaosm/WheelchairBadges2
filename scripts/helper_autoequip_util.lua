@@ -413,6 +413,18 @@ local function MatchActionTarget(bufferedaction, cond)
 				if (val and not target[prop]) or (not val and target[prop]) then return false end
 			end
 		end
+		--near_tags：目标半径(取原版FARM_PLANT_DEFENDER_SEARCH_DIST=10)内存在带"任一"标签的实体才满足(须有目标；不含目标自身与燃烧中的)
+		if cond.near_tags and #cond.near_tags > 0 then
+			if target.Transform == nil then return false end
+			local nx, ny, nz = target.Transform:GetWorldPosition()
+			local radius = (GLOBAL.TUNING and GLOBAL.TUNING.FARM_PLANT_DEFENDER_SEARCH_DIST) or 10
+			local found = false
+			for _, v in ipairs(TheSim:FindEntities(nx, ny, nz, radius, cond.near_tags)) do
+				local burnable = v.components ~= nil and v.components.burnable or nil
+				if v ~= target and (burnable == nil or not burnable.burning) then found = true break end
+			end
+			if not found then return false end
+		end
 	else
 		local hasRecipeCond = (cond.recipe_builder_tag and #cond.recipe_builder_tag > 0)
 			or (cond.exclude_recipe_props and #cond.exclude_recipe_props > 0)

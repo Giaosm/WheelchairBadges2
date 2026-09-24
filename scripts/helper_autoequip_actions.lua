@@ -33,6 +33,7 @@
 --       slingshot_ammo = { "ammo" },           -- 手持弹弓当前装的弹药是"任一"指定prefab才满足(如沙刺弹medalslingshotammo_sandspike)；支持"tag:xxx"前缀匹配弹药物品标签
 --       season_fish    = { prefab = "season" }, -- 玩家周围献祭范围(BOOK_SACRIFICE_RADIUS)内有指定季节鱼(地上实体)且当前季节≠对应季节才满足(换季献祭需勋章)
 --       range_tags     = { "stump" },          -- 施法中心(动作点>目标位置>施法者位置)半径内存在带"任一"指定标签的实体才满足；半径取法杖的medal_show_radius(缺省用tuning DEVOUR_STAFF_RADIUS)；仅对吞噬法杖/时空法杖生效(名单见helper_autoequip_util.lua的RANGE_TAGS_STAFFS，其它CASTSPELL来源如原版魔杖不参与)，用于对点/对自己施法这类没有点击目标的动作
+--       near_tags      = { "farm_plant_defender" }, -- 目标位置半径内存在带"任一"指定标签的实体才满足(须有目标，否则不触发)；半径固定取原版守护杂草搜索距离TUNING.FARM_PLANT_DEFENDER_SEARCH_DIST(=10，与放藤判定同半径)；不算目标自身与燃烧中的实体(如挖/采农场作物时判附近有无守护刺针旋花)
 --       --配方字段(判定对象是制作配方 bufferedaction.recipe，用于BUILD等)：
 --       recipe_builder_tag      = { "seasoningchef" }, -- 配方的builder_tag命中才满足(区分勋章专属配方，如BUILD)
 --       exclude_recipe_props    = { "builder_tag" },   -- 配方带"任一"指定属性(如builder_tag)则排除(其他勋章专属)
@@ -140,9 +141,16 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		action_targets = {
 			BUILD   = { recipe_builder_tag = { "has_plant_medal", "has_transplant_medal", "plantkin" } },	--制作植物专属配方(月光权杖/月光锤/月光网/肥料包等)
 			DEPLOY  = { hand_tags = { "deployedfarmplant" } },	--种下农场作物种子(手持物带deployedfarmplant标签)
+			DIG     = { tags = { "farm_plant" }, near_tags = { "farm_plant_defender" } },	--挖掉农场作物/杂草且10格内有守护刺针旋花→戴植物勋章(真plantkin免被缠绕)
 			PICK    = {
-				transplant_certificate = { tags = { "thorny" } },	--采带刺植物(thorny标签)戴植物勋章
-				plant_certificate = { props = { is_oversized = true }, exclude_tags = { "farm_plant_killjoy" } },	--采巨型作物(is_oversized)戴虫木勋章，排除腐烂作物
+				transplant_certificate = {
+					{ tags = { "thorny" } },	--采带刺植物(thorny标签)戴植物勋章
+					{ tags = { "farm_plant" }, near_tags = { "farm_plant_defender" } },	--采农场作物/杂草且10格内有守护刺针旋花→戴植物勋章(真plantkin免被缠绕)
+				},
+				plant_certificate = {
+					{ props = { is_oversized = true }, exclude_tags = { "farm_plant_killjoy" } },	--采巨型作物(is_oversized)戴虫木勋章，排除腐烂作物
+					{ tags = { "farm_plant" }, near_tags = { "farm_plant_defender" } },	--同上(没植物勋章时用虫木勋章，同样提供plantkin)
+				},
 			},
 			HARVEST = { prefabs = { "waterplant" } },	--收获藤壶(戴植物勋章带plantkin免被海草攻击)
 			SHAVE   = { prefabs = { "waterplant" } },	--刮取藤壶(戴植物勋章带plantkin免被海草攻击)

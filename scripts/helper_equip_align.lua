@@ -1,4 +1,5 @@
---自动装备对齐(配合 helper_tags.lua)：决策要戴的勋章实际没戴上(缺佩)时，动作期间剥掉它相关的临时假标签、动作后恢复。
+--自动装备对齐(配合 helper_tags.lua)：决策要戴的勋章实际没戴上(缺佩)时，动作期间剥掉它提供的临时能力(标签/组件，按能力剥：
+--同组其它只是"拥有未佩戴"的勋章不再顶上)、动作后恢复。
 --剥离方式：设 player.helper_medal_align_exclude(缺佩勋章prefab集合)交给 RefreshPlayerMedalTags 处理，
 --避免与物品变化触发的刷新互相覆盖(同 helper_medal_exam_running 思路)。
 --边界两处：StartAction(选状态，官方快采 testfn 在内) 与 BufferedAction:Do(执行fn)，各"剥离→执行→恢复"一轮。
