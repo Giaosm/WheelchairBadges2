@@ -59,6 +59,11 @@ HelperRules_AUTO_EQUIP = {
 			["plant_certificate"]      = 20,	--虫木勋章(收巨大农作物升级)
 			["harvest_certificate"]    = 10,	--丰收勋章(快采兜底)
 		},
+		EAT = {
+			["transplant_certificate"] = 20,	--植物勋章(吃荨麻/干荨麻免疫中毒)
+			["plant_certificate"]      = 20,	--虫木勋章(吃荨麻/干荨麻免疫中毒)
+			["headchef_certificate"]   = 10,	--主厨勋章(吃料理，兜底)
+		},
 		MEDAL_GRINDING = {
 			["headchef_certificate"]   = 30,	--主厨(提供seasoningchef，真正研磨)
 			["space_time_certificate"] = 20,	--时空(整组研磨)

@@ -136,13 +136,15 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			"PLANTSOIL",				--种田(需plantkin标签)
 		},
 		action_targets = {
-			BUILD   = { recipe_builder_tag = { "has_plant_medal", "has_transplant_medal" } },	--制作植物专属配方(月光权杖/月光锤/月光网/肥料包等)
+			BUILD   = { recipe_builder_tag = { "has_plant_medal", "has_transplant_medal", "plantkin" } },	--制作植物专属配方(月光权杖/月光锤/月光网/肥料包等)
 			DEPLOY  = { hand_tags = { "deployedfarmplant" } },	--种下农场作物种子(手持物带deployedfarmplant标签)
 			PICK    = {
 				transplant_certificate = { tags = { "thorny" } },	--采带刺植物(thorny标签)戴植物勋章
 				plant_certificate = { props = { is_oversized = true }, exclude_tags = { "farm_plant_killjoy" } },	--采巨型作物(is_oversized)戴虫木勋章，排除腐烂作物
 			},
 			HARVEST = { prefabs = { "waterplant" } },	--收获藤壶(戴植物勋章带plantkin免被海草攻击)
+			SHAVE   = { prefabs = { "waterplant" } },	--刮取藤壶(戴植物勋章带plantkin免被海草攻击)
+			EAT     = { prefabs = { "firenettles", "firenettles_dried" } },	--吃荨麻/干荨麻(戴植物勋章带plantkin免中毒)
 			MEDALSTAFFDEVOUR = { transplant_certificate = { tags = { "medal_harvestable", "rock_tree" }, player_all_tags = { "has_origin_medal", "medal_fastpicker" } } },
 			CASTSPELL        = { transplant_certificate = { range_tags = { "medal_harvestable", "rock_tree" }, player_all_tags = { "has_origin_medal", "medal_fastpicker" } } },
 		},
