@@ -299,6 +299,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 		name = "传承勋章",
 		action_targets = {
 			BUILD = { recipe_builder_tag = { "traditionalbearer1", "traditionalbearer2", "traditionalbearer3" } },	--制作传承勋章解锁的配方(羽绒帽/蓝晶帽/复眼/速度/空间/未解之谜/本源精华等)
+			MULTIVARIATEUPGRADE = { exclude_prefabs = { "large_multivariate_certificate" } },	--融合勋章升级(需传承标签traditionalbearer1/2/3)；高级融合→本源要的是under_origin_tree，用不到传承勋章故排除
 		},
 	},
 	--蜂王勋章组
