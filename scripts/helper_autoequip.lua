@@ -19,7 +19,7 @@ local COND_FIELDS = {
 	near_tags = true,
 }
 local SPECIAL_ACTIONS = { REINCARNATION = true }--走独立监听(致命伤保命)，不参与动作流水线
-local PSEUDO_ACTIONS = { NEARFIRENETTLE = true }--非ACTIONS动作，但按普通动作流水线处理(靠近火荨麻)
+local PSEUDO_ACTIONS = { NEARFIRENETTLE = true, NEAREYEPLANT = true }--非ACTIONS动作，但按普通动作流水线处理(靠近火荨麻/眼球草)
 local SPECIAL_ACTION_ENTRIES = {}
 for kind in pairs(SPECIAL_ACTIONS) do SPECIAL_ACTION_ENTRIES[kind] = {} end
 
@@ -204,9 +204,10 @@ AddPlayerPostInit(function(inst)
 		if entries == nil then return end
 		local usedSlots = {}
 
-		--保护勋章(水面等环境不可移走)：受保护的已佩戴勋章先移入融合勋章保住，无融合则放弃本次(保住不动)
+		--保护勋章(水面等环境不可移走)：受保护的已佩戴勋章先移入融合勋章保住；无融合可收纳时本次不换装(保住不动)，
+		--但"应佩戴"仍照记(见下方RecordExpected)：让对齐把缺佩勋章的临时能力剥掉(真佩戴才享，如眼球草锁定/缠绕免疫)
 		local protectedSet = GLOBAL.ComputeProtectedSet(inst)
-		if not HandleProtectedEquipped(inst, bufferedaction, usedSlots, protectedSet) then return end
+		local can_equip = HandleProtectedEquipped(inst, bufferedaction, usedSlots, protectedSet)
 
 		--最优融合勋章本动作只求一次：装备的始终是同一枚，装备后重算结果不变；避免每个匹配组各扫一遍全量
 		local action_fusion, action_fusion_ready = nil, false
@@ -273,14 +274,16 @@ AddPlayerPostInit(function(inst)
 				for _, f in ipairs(finalists) do
 					table.insert(expected, f.info.medal)
 				end
-				if GetActionFusion() ~= nil then--"有无融合勋章"与FindAnyFusion判据相同，复用同一次查找
-					for _, f in ipairs(finalists) do
-						AutoEquipMedalForGroup(inst, f.group, bufferedaction, usedSlots, protectedSet, f.info.medal, nil, GetActionFusion())
-						--标记已处理勋章不可移走：防后续低优先级勋章把它挤出融合勋章(缓存/已在内提前返回也拦得住)
-						protectedSet[f.info.medal] = true
+				if can_equip then
+					if GetActionFusion() ~= nil then--"有无融合勋章"与FindAnyFusion判据相同，复用同一次查找
+						for _, f in ipairs(finalists) do
+							AutoEquipMedalForGroup(inst, f.group, bufferedaction, usedSlots, protectedSet, f.info.medal, nil, GetActionFusion())
+							--标记已处理勋章不可移走：防后续低优先级勋章把它挤出融合勋章(缓存/已在内提前返回也拦得住)
+							protectedSet[f.info.medal] = true
+						end
+					else
+						AutoEquipMedalForGroup(inst, finalists[1].group, bufferedaction, usedSlots, protectedSet, finalists[1].info.medal, nil, GetActionFusion())
 					end
-				else
-					AutoEquipMedalForGroup(inst, finalists[1].group, bufferedaction, usedSlots, protectedSet, finalists[1].info.medal, nil, GetActionFusion())
 				end
 				RecordExpected(bufferedaction, expected)
 				return
@@ -288,12 +291,14 @@ AddPlayerPostInit(function(inst)
 			--无决赛选手(命中的组都不在优先级表) → 回退逐组装备
 		end
 
-		--逐组装备
+		--逐组装备(受保护放弃换装时只记应佩戴，不动机物品)
 		local expected = {}
 		for group, info in pairs(group_best) do
-			AutoEquipMedalForGroup(inst, group, bufferedaction, usedSlots, protectedSet, info.medal, nil, GetActionFusion())
+			if can_equip then
+				AutoEquipMedalForGroup(inst, group, bufferedaction, usedSlots, protectedSet, info.medal, nil, GetActionFusion())
+				protectedSet[info.medal] = true--同上：防止被后续勋章挤出融合勋章
+			end
 			table.insert(expected, info.medal)
-			protectedSet[info.medal] = true--同上：防止被后续勋章挤出融合勋章
 		end
 		RecordExpected(bufferedaction, expected)
 	end
@@ -461,6 +466,17 @@ AddComponentPostInit("health", function(self)
 	end
 end)
 
+--------------------------------伪动作公共入口--------------------------------
+--伪动作(非ACTIONS动作，如靠近火荨麻/眼球草)流水线：先 TryAutoEquip 换装+记应佩戴，返回应佩戴列表(供 RunWithEquipAlign 用)
+local function PseudoActionEquip(player, action_id, target)
+	if player == nil or player:HasTag("playerghost") then return nil end--幽灵不参与(装上也无效)
+	local try = player.helper_autoequip_fn
+	if try == nil then return nil end
+	local synthetic = { action = { id = action_id }, target = target, doer = player }
+	try(synthetic)
+	return synthetic.helper_expected_medals
+end
+
 --------------------------------火荨麻靠近(伪动作 NEARFIRENETTLE)--------------------------------
 --weed_firenettle 成熟后挂 playerprox(0.5~2.5格)，玩家靠近即被扎伤+中毒；它不走 ACTIONS，
 --故用伪动作 NEARFIRENETTLE 承接，照普通动作流水线：先 TryAutoEquip 换装+记应佩戴，再用 RunWithEquipAlign 包原回调(缺佩剥假标签)
@@ -470,16 +486,44 @@ AddComponentPostInit("playerprox", function(self)
 	if oldSetOnPlayerNear == nil then return end
 	self.SetOnPlayerNear = function(self, fn, ...)
 		local wrapped = function(inst_, player_, ...)
-			local synthetic = { action = { id = "NEARFIRENETTLE" }, target = inst_, doer = player_ }
-			local try = player_ ~= nil and player_.helper_autoequip_fn or nil
-			if try ~= nil then try(synthetic) end
-			--与动作fn层捕获同款：先换装，再在对齐窗口内执行原回调(缺佩剥假标签)
-			if synthetic.helper_expected_medals ~= nil and GLOBAL.RunWithEquipAlign ~= nil then
-				return GLOBAL.RunWithEquipAlign(player_, synthetic.helper_expected_medals, "NEARFIRENETTLE", "fn", fn, inst_, player_, ...)
+			--与动作fn层捕获同款：先换装(伪动作流水线)，再在对齐窗口内执行原回调(缺佩剥假标签)
+			local expected = PseudoActionEquip(player_, "NEARFIRENETTLE", inst_)
+			if expected ~= nil and GLOBAL.RunWithEquipAlign ~= nil then
+				return GLOBAL.RunWithEquipAlign(player_, expected, "NEARFIRENETTLE", "fn", fn, inst_, player_, ...)
 			end
 			return fn(inst_, player_, ...)
 		end
 		return oldSetOnPlayerNear(self, wrapped, ...)
+	end
+end)
+
+--------------------------------眼球草靠近(伪动作 NEAREYEPLANT)--------------------------------
+--eyeplant 的 combat 每0.2s重锁目标，其排除栏(RETARGET_CANT_TAGS)含"plantkin"；它不走 ACTIONS，
+--故用伪动作 NEAREYEPLANT 承接：重锁前把范围内玩家走一遍流水线，装备后成真plantkin即不被锁定
+AddComponentPostInit("combat", function(self)
+	--注意：引擎要等 prefab.fn() 返回后才设 inst.prefab(mainfunctions.lua:366)，而眼球草的 combat 是在 fn 内加的
+	--(eyeplant.lua:116)，此刻 prefab 名还是 nil，故只能用标签判(eyeplant.lua:96 已先打"eyeplant"标签)
+	if self.inst == nil or not self.inst:HasTag("eyeplant") then return end
+	local oldSetRetargetFunction = self.SetRetargetFunction
+	if oldSetRetargetFunction == nil then return end
+	self.SetRetargetFunction = function(self, period, fn, ...)
+		if fn == nil then return oldSetRetargetFunction(self, period, fn, ...) end
+		local wrapped = function(inst, ...)
+			local x, y, z = inst.Transform:GetWorldPosition()
+			local targets
+			for _, player in ipairs(TheSim:FindEntities(x, y, z, TUNING.EYEPLANT_ATTACK_DIST or 2.5, { "player" })) do
+				local expected = PseudoActionEquip(player, "NEAREYEPLANT", inst)
+				if expected ~= nil then
+					targets = targets or {}
+					table.insert(targets, { player = player, expected = expected })
+				end
+			end
+			if targets ~= nil and GLOBAL.RunWithEquipAlignAll ~= nil then
+				return GLOBAL.RunWithEquipAlignAll(targets, "NEAREYEPLANT", "fn", fn, inst, ...)
+			end
+			return fn(inst, ...)
+		end
+		return oldSetRetargetFunction(self, period, wrapped, ...)
 	end
 end)
 

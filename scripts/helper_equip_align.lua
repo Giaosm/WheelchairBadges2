@@ -45,6 +45,19 @@ local function RunAlignWindow(player, expected, action_id, phase, fn, ...)
 	return unpack(results, 2, n)
 end
 
+--多目标版：叠加多个玩家各自的缺佩窗口后只跑一次fn(用于一次触发牵涉多名玩家的边界，如眼球草重锁目标)
+--targets = { { player = 玩家, expected = 应佩戴列表 }, ... }
+local function RunAlignWindowForAll(targets, action_id, phase, fn, ...)
+	local i, n = 1, targets ~= nil and #targets or 0
+	local function Run(...)
+		local t = i <= n and targets[i] or nil
+		i = i + 1
+		if t == nil then return fn(...) end
+		return RunAlignWindow(t.player, t.expected, action_id, phase, Run, ...)
+	end
+	return Run(...)
+end
+
 --选状态(先于 Do)：StartAction 内部调 sg.actionhandlers[action].deststate，官方快采/动作劫持的 testfn 就在里面，
 --必须在此之前剥离；只挂 Do 来不及(状态已选完)。
 local sgi = StateGraphInstance
@@ -69,3 +82,4 @@ if oldBufferedActionDo ~= nil then
 end
 
 GLOBAL.RunWithEquipAlign = RunAlignWindow--供 helper_autoequip 的动作fn层捕获复用(按钮直接执行路径)
+GLOBAL.RunWithEquipAlignAll = RunAlignWindowForAll--同上，多目标版(伪动作一次牵涉多名玩家时用)
