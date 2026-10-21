@@ -311,6 +311,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			"ATTACK",	--攻击时自动装备蜂王勋章(毒伤/AOE)
 		},
 		action_targets = {
+			BUILD = { recipe_builder_tag = { "is_bee_king" } },	--制作蜂王专属配方(不朽之谜immortal_book/育王蜂箱medal_beebox)时佩戴蜂王勋章
 			HARVEST = { prefabs = { "medal_beebox" }, player_all_tags = { "has_origin_medal" } },	--收获育王蜂箱(medal_beebox)时触发；需玩家拥有本源勋章标签(has_origin_medal)
 			MEDALBEEBOXHARVEST = { player_all_tags = { "has_origin_medal" } },	--自定义动作：右键收获满蜜育王蜂箱(medal_beebox)的凋零蜂王浆时触发；需玩家拥有本源勋章标签(has_origin_medal)
 			MEDALSTAFFDEVOUR = { tags = { "medal_beebox_full" }, player_all_tags = { "medal_fastpicker" } },	--目标育王蜂箱满蜜(medal_beebox_full)，且玩家拥有丰收勋章标签(medal_fastpicker)

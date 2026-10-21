@@ -94,6 +94,11 @@ HelperRules_MEDAL_RULES = {
 		group = "tentacleMedal",
 		tags = { "tentaclemedal" },
 	},
+	--蜂王勋章(蜂王组已完成)：仅解锁配方(不朽之谜/育王蜂箱)与手杖收满蜜蜂箱；不提供毒伤/AOE/免叮咬等(那些归佩戴时)
+	bee_king_certificate = {
+		group = "beeKingMedal",
+		tags = { "is_bee_king" },
+	},
 	--传承勋章(传承组已完成)：level_tag_base按勋章等级动态赋标签(有几级赋几级，对齐原版onequipfn)
 	inherit_certificate = {
 		group = "inheritMedal",
