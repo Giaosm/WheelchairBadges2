@@ -199,7 +199,7 @@ HelperRules_AUTO_EQUIP_ACTIONS = {
 			EQUIP = { tags = { "slingshot" } },	--装备弹弓(含皮肤/变体版)
 			ATTACK = { slingshot_ammo = { "tag:slingshotammo" } },	--弹弓射击弹药
 			BUILD = { recipe_builder_tag = { "pebblemaker", "slingshot_sharpshooter", "pinetreepioneer", "troublemaker", "has_childishness", "senior_childishness" } },	--解锁配方
-			MEDALEXCHANGEGIFT = { player_all_tags = { "has_origin_medal" } },	--童心箱换取礼物(右键)；需玩家拥有本源勋章标签(has_origin_medal)
+			MEDALEXCHANGEGIFT = { player_all_tags = { "has_origin_medal" } },	--童心箱换取礼物(右键/按钮，按钮路径由helper_autoequip.lua钩exchangeGift承接)；需玩家拥有本源勋章标签(has_origin_medal)
 		},
 	},
 	--暗影勋章组

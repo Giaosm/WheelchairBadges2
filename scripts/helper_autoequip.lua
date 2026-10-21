@@ -477,6 +477,23 @@ local function PseudoActionEquip(player, action_id, target)
 	return synthetic.helper_expected_medals
 end
 
+--------------------------------童心箱兑礼(按钮路径，伪动作 MEDALEXCHANGEGIFT)--------------------------------
+--按钮直接调 inst.exchangeGift(不经 BufferedAction)，动作流水线抓不到；钩它当统一入口(右键也走它)，
+--照伪动作流水线：先换装+记应佩戴，再用 RunWithEquipAlign 包原函数(缺佩剥假标签)
+AddPrefabPostInit("medal_childishness_chest", function(inst)
+	if not GLOBAL.TheNet:GetIsServer() then return end
+	if inst.exchangeGift == nil or inst.helper_exchangegift_hooked then return end
+	inst.helper_exchangegift_hooked = true
+	local old_exchange = inst.exchangeGift
+	inst.exchangeGift = function(self, player, ...)
+		local expected = PseudoActionEquip(player, "MEDALEXCHANGEGIFT", self)
+		if expected ~= nil and GLOBAL.RunWithEquipAlign ~= nil then
+			return GLOBAL.RunWithEquipAlign(player, expected, "MEDALEXCHANGEGIFT", "fn", old_exchange, self, player, ...)
+		end
+		return old_exchange(self, player, ...)
+	end
+end)
+
 --------------------------------火荨麻靠近(伪动作 NEARFIRENETTLE)--------------------------------
 --weed_firenettle 成熟后挂 playerprox(0.5~2.5格)，玩家靠近即被扎伤+中毒；它不走 ACTIONS，
 --故用伪动作 NEARFIRENETTLE 承接，照普通动作流水线：先 TryAutoEquip 换装+记应佩戴，再用 RunWithEquipAlign 包原回调(缺佩剥假标签)
