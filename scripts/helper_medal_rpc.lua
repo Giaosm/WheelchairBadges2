@@ -1,8 +1,8 @@
 --轮椅开关RPC：客户端UI配置同步到服务端
 --用json字符串传输：直接发boolean会丢失false(服务端收到nil)，json可完整保留
 --
---【UI各开关的同步方式】
--- 1. 勋章组开/关开关(chopMedal/chefMedal/justiceMedal/valkyrieMedal等) → 存 group_enabled → SyncGroupEnabled
+--【UI各开关的同步方式】(写入player字段后由components/medal_settings随玩家存档持久化)
+-- 1. 勋章组开/关开关(chopMedal/chefMedal/justiceMedal/valkyrieMedal等) → SyncGroupEnabled → player.medal_group_enabled
 -- 2. 强制保留勋章列表(强制保留UI) → SyncForcedKeep → player.medal_forced_keep
 -- 3. 自动补充耐久阈值(自动补充UI，含正义勋章目标选择) → SyncAutoRepair → player.medal_autorepair
 -- 4. 正义武神模式(正义/武神切换UI) → SyncJVMode → player.medal_jv_mode

@@ -27,6 +27,13 @@ modimport("scripts/helper_medal_ui.lua")--轮椅开关UI(客户端)
 modimport("scripts/helper_tribute_answer.lua")--奉纳盒显示答案(依赖UI开关)
 modimport("scripts/helper_treasure_master.lua")--寻宝大师(藏宝图部署一次直接在地图标出宝藏位置)
 
+--轮椅开关配置持久化(服务端)：组件随玩家存档迁移，换世界后配置不丢
+AddPlayerPostInit(function(player)
+	if GLOBAL.TheNet:GetIsServer() and player:HasTag("player") and player.components.medal_settings == nil then
+		player:AddComponent("medal_settings")
+	end
+end)
+
 --通用半透明投影(资源由prefab自身声明)
 PrefabFiles =
 {

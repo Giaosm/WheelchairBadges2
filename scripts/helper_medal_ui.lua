@@ -58,6 +58,14 @@ local function SaveJVMode(mode)
 	GLOBAL.SyncJVMode(stored_data.jv_mode)--同步服务端
 end
 
+--全量发送本地配置(幂等)：进服/换世界、打开面板时都重发一次，纠正服务端可能丢失的配置
+local function SyncAllMedalSettings()
+	GLOBAL.SyncGroupEnabled(stored_data.group_enabled or {})
+	GLOBAL.SyncForcedKeep(stored_data.forced_keep or {})
+	GLOBAL.SyncAutoRepair(stored_data.autorepair or {})
+	GLOBAL.SyncJVMode(GetJVMode())
+end
+
 --快捷键选项("global"跟随全局/false关闭/数字为具体键)
 local MEDAL_KEY_OPTIONS = {
 	{ text = "跟随全局", data = "global" },
@@ -312,6 +320,7 @@ local MedalUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 	end
 
 	self:UpdateButtons()
+	SyncAllMedalSettings()--打开面板即全量重发，纠正服务端配置
 
 	self.helper_pause_held = true
 	GLOBAL.SetAutopaused(true)
@@ -381,12 +390,23 @@ local function IsTypingActive()
 	return false
 end
 
+--关闭本模组所有已打开界面(从栈顶往下关，PopScreen 每次移除的都是栈顶)
+local function CloseMedalUIScreens()
+	local closed = false
+	for i = #TheFrontEnd.screenstack, 1, -1 do
+		local s = TheFrontEnd.screenstack[i]
+		if s.medal_ui_active then
+			s:Close()
+			closed = true
+		end
+	end
+	return closed
+end
+
+--开关本模组面板：已有界面则全部关闭，没有则打开1级主面板(快捷键与暂停菜单共用)
 GLOBAL.ToggleMedalUI = function()
 	if IsTypingActive() then return end--正在打字输入时不触发快捷键
-	local cur = TheFrontEnd:GetActiveScreen()
-	if cur ~= nil and cur.medal_ui_active then
-		cur:Close()
-	else
+	if not CloseMedalUIScreens() then
 		TheFrontEnd:PushScreen(MedalUIScreen())
 	end
 end
@@ -462,6 +482,7 @@ end
 --强制保留勋章选择UI(覆盖在轮椅开关UI上层)
 local ForcedKeepUIScreen = GLOBAL_Class(GLOBAL_Screen, function(self)
 	GLOBAL_Screen._ctor(self, "ForcedKeepUIScreen")
+	self.medal_ui_active = true--与主面板同一标记，供快捷键/暂停入口统一关闭
 	local candidates = GetForcedKeepCandidates()--全部可候选
 	local selected = GetForcedKeepList()--已选(prefab数组)
 	local MAX_SELECT = 9
@@ -680,7 +701,7 @@ AddClassPostConstruct("screens/redux/pausescreen", function(self)
 	if self.menu and (key == false or key == nil) then
 		self.menu.helper_medal_btn = self.menu:AddItem("轮椅开关", function()
 			self:unpause()
-			TheFrontEnd:PushScreen(MedalUIScreen())
+			GLOBAL.ToggleMedalUI()--与快捷键同一入口：有界面全关，没有则开1级主面板
 		end)
 		self.menu.helper_medal_btn:SetScale(.7)
 	end
@@ -702,16 +723,14 @@ GLOBAL.ReRegisterMedalKey = function()
 	end
 end
 AddPlayerPostInit(function(player)
-	if player == nil or not player:HasTag("player") or medal_ui_key_registered then return end
-	medal_ui_key_registered = true
-	GLOBAL.ReRegisterMedalKey()
-	--进服同步配置到服务端(playeractivated后sender才是player，过早会收到userid)
-	player:ListenForEvent("playeractivated", function()
-		GLOBAL.SyncGroupEnabled(GetStoredConfig())
-		GLOBAL.SyncForcedKeep(GetForcedKeepList())
-		GLOBAL.SyncAutoRepair(GetAutoRepairConfig())
-		GLOBAL.SyncJVMode(GetJVMode())
-	end)
+	if player == nil or not player:HasTag("player") then return end
+	if not medal_ui_key_registered then--快捷键是全局输入，进程内只注册一次
+		medal_ui_key_registered = true
+		GLOBAL.ReRegisterMedalKey()
+	end
+	if player.helper_medal_settings_hooked then return end--监听按玩家实体挂，换世界的新实体要重挂
+	player.helper_medal_settings_hooked = true
+	player:ListenForEvent("playeractivated", SyncAllMedalSettings)--此时sender才是player，过早会收到userid
 end)
 
 --控制台命令：忘记快捷键时重置为关闭，使暂停菜单恢复入口
