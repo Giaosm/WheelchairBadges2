@@ -136,17 +136,21 @@ HelperRules_AUTO_EQUIP = {
 			local full_level = (GLOBAL.TUNING and GLOBAL.TUNING.SANDSTORM_FULL_LEVEL) or 0.7
 			return sw ~= nil and sw:GetCurrentStorm() > 0 and sw:GetStormLevel() > full_level
 		end },
-		--羽绒勋章：秋冬季节保护(防冻，不替换)
+		--羽绒勋章：冬季全程 + 春季前50%(春初气温从5度起，夜间仍会过冷)
 		down_filled_coat_certificate = { env = function(player)
 			if player == nil or player:HasTag("playerghost") then return false end
-			local season = GLOBAL.TheWorld and GLOBAL.TheWorld.state and GLOBAL.TheWorld.state.season
-			return season == "autumn" or season == "winter"
+			local state = GLOBAL.TheWorld and GLOBAL.TheWorld.state
+			if state == nil then return false end
+			return state.season == "winter"
+				or (state.season == "spring" and (state.seasonprogress or 0) < .5)
 		end },
-		--蓝晶勋章：春夏季节保护(防过热，不替换)
+		--蓝晶勋章：夏季全程 + 秋季前30%(只覆盖秋初余热)
 		blue_crystal_certificate = { env = function(player)
 			if player == nil or player:HasTag("playerghost") then return false end
-			local season = GLOBAL.TheWorld and GLOBAL.TheWorld.state and GLOBAL.TheWorld.state.season
-			return season == "spring" or season == "summer"
+			local state = GLOBAL.TheWorld and GLOBAL.TheWorld.state
+			if state == nil then return false end
+			return state.season == "summer"
+				or (state.season == "autumn" and (state.seasonprogress or 0) < .3)
 		end },
 	},
 
